@@ -10,6 +10,10 @@ services:
 
     environment:
       OCIS_INSECURE: "true"
+      OCIS_URL: "https://26.195.60.25:9200"
+      OCIS_LOG_LEVEL: "info"
+      PROXY_TLS: "false"
+
       HOME: "/var/lib/ocis"
 
     volumes:
