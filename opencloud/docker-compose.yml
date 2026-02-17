@@ -10,15 +10,9 @@ services:
 
     environment:
       OCIS_INSECURE: "true"
-
       OCIS_URL: "http://26.195.60.25:9200"
-
-      PROXY_HTTP_ADDR: "0.0.0.0:9200"
-
-      PROXY_TLS: "false"
-
+      OCIS_CONFIG_FILE: "/etc/ocis/ocis.yaml"
       HOME: "/var/lib/ocis"
-      OCIS_CONFIG_DIR: "/etc/ocis"
 
     volumes:
       - ./data:/var/lib/ocis
