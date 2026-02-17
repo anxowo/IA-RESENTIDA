@@ -9,15 +9,13 @@ services:
       - "9200:9200"
 
     environment:
-      OCIS_URL: "https://26.195.60.25:9200"
-
+      OCIS_URL: https://26.195.60.25:9200
       OCIS_INSECURE: "true"
 
-      PROXY_HTTP_ADDR: "0.0.0.0:9200"
-      PROXY_TLS: "true"
+      PROXY_HTTP_ADDR: 0.0.0.0:9200
 
-      HOME: "/var/lib/ocis"
-      OCIS_CONFIG_DIR: "/etc/ocis"
+      HOME: /var/lib/ocis
+      OCIS_CONFIG_DIR: /etc/ocis
 
     volumes:
       - ./data/ocis:/var/lib/ocis
