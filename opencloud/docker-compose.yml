@@ -11,7 +11,7 @@ services:
     environment:
       OCIS_INSECURE: "true"
 
-      OCIS_URL: "http://26.195.60.25:9200"
+      OCIS_URL: "https://26.195.60.25:9200"
 
       PROXY_HTTP_ADDR: "0.0.0.0:9200"
       PROXY_TLS: "false"
