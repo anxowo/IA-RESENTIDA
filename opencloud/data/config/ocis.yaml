@@ -1,35 +1,35 @@
 token_manager:
-  jwt_secret: PugE1Gb270v!#!fIcLTIMfXe*$.*.X+q
-machine_auth_api_key: 7AL@lK*h9*!#D3=CFn3FtG=pmm1COgH7
-system_user_api_key: ^cA9cGY+i3Z*Jzysiwzu7JYQkV%M9VQH
-transfer_secret: kovL!!YzV*H=J7TWZ*@uVvpT!h$FjgXW
-system_user_id: 417622fe-08ea-4fc7-aa11-1d3ee8dc0e33
-admin_user_id: 163a3cfd-9bc5-4f65-873d-c2d0696c94ab
+  jwt_secret: G4ouUwM8crhE3#oMk*3c+5i4%Q&zwyht
+machine_auth_api_key: -z$rV+9m&s0rUk&bo3IR.LSXALlhaOm=
+system_user_api_key: TsAF@Zt+AkpcbDqg.f*+hoYZ@M.uXoEA
+transfer_secret: $hv!xSb6g=w&3*=OkDTJC-AmmaVv#Kp-
+system_user_id: 375a5274-1a28-46d0-8d0c-edf07ea1bf65
+admin_user_id: e23e7797-eaf3-4e28-85f2-b3551394caed
 graph:
   application:
-    id: d28a0321-f300-47b0-bf6d-e6e47a48d7dc
+    id: bc4bc159-4da4-446c-9b6e-afb976c50b7d
   events:
     tls_insecure: true
   spaces:
     insecure: true
   identity:
     ldap:
-      bind_password: UKdhTS3bEamB+.#$JzPhl!8YR5v8z6l1
+      bind_password: uENVaY$=do&U@Z4ezZBtrWKrEqC%dX1I
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 idp:
   ldap:
-    bind_password: NfzwL&xiN-BiXFd%FRq3^^jwJbMuRH0C
+    bind_password: '!jpfQB8UA9fBDotCS%s4r5W@Llc=X6zI'
 idm:
   service_user_passwords:
-    admin_password: wte7GSmuiSAf*tReRDFPwedj*!mL0!6U
-    idm_password: UKdhTS3bEamB+.#$JzPhl!8YR5v8z6l1
-    reva_password: '&DyfLW!Yx9yUY4jM8^-$Bzj80SX-6x18'
-    idp_password: NfzwL&xiN-BiXFd%FRq3^^jwJbMuRH0C
+    admin_password: f$=cOb2mI3vrE!!klpoKcz1x6LuvXi^!
+    idm_password: uENVaY$=do&U@Z4ezZBtrWKrEqC%dX1I
+    reva_password: oK1.*OqBBXSeE9VrTVoiD-WFJLdFmIOg
+    idp_password: '!jpfQB8UA9fBDotCS%s4r5W@Llc=X6zI'
 collaboration:
   wopi:
-    secret: alRDSZ2dK*LP5c52Ogj9.@7WqWyZrxM9
+    secret: lohT&j^y2$gbWp!u3BEA7HBT0fV9$kjI
   app:
     insecure: true
 proxy:
@@ -37,20 +37,20 @@ proxy:
     insecure: true
   insecure_backends: true
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 frontend:
   app_handler:
     insecure: true
   archiver:
     insecure: true
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 auth_basic:
   auth_providers:
     ldap:
-      bind_password: '&DyfLW!Yx9yUY4jM8^-$Bzj80SX-6x18'
+      bind_password: oK1.*OqBBXSeE9VrTVoiD-WFJLdFmIOg
 auth_bearer:
   auth_providers:
     oidc:
@@ -58,70 +58,70 @@ auth_bearer:
 users:
   drivers:
     ldap:
-      bind_password: '&DyfLW!Yx9yUY4jM8^-$Bzj80SX-6x18'
+      bind_password: oK1.*OqBBXSeE9VrTVoiD-WFJLdFmIOg
 groups:
   drivers:
     ldap:
-      bind_password: '&DyfLW!Yx9yUY4jM8^-$Bzj80SX-6x18'
+      bind_password: oK1.*OqBBXSeE9VrTVoiD-WFJLdFmIOg
 ocdav:
   insecure: true
 ocm:
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 thumbnails:
   thumbnail:
-    transfer_secret: $rf^1sweASCe3K8oG0Mb8-ziy4h52HXv
+    transfer_secret: u.MnLGrF5CVtn%$NDvlfpkN&t#%tMDo0
     webdav_allow_insecure: true
     cs3_allow_insecure: true
 search:
   events:
     tls_insecure: true
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 audit:
   events:
     tls_insecure: true
 settings:
   service_account_ids:
-  - b7e490b6-8b8f-4526-a61b-45b9267efc51
+  - da80db44-7d57-4c72-9f9a-0f190c5ef09e
 sharing:
   events:
     tls_insecure: true
 storage_users:
   events:
     tls_insecure: true
-  mount_id: 3f5b4c78-c7a7-41a5-b808-bbb1b69938a6
+  mount_id: 28d4d24d-8fad-40d4-8dff-acf1b772e991
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 notifications:
   notifications:
     events:
       tls_insecure: true
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 nats:
   nats:
     tls_skip_verify_client_cert: true
 gateway:
   storage_registry:
-    storage_users_mount_id: 3f5b4c78-c7a7-41a5-b808-bbb1b69938a6
+    storage_users_mount_id: 28d4d24d-8fad-40d4-8dff-acf1b772e991
 userlog:
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 auth_service:
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 clientlog:
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
 activitylog:
   service_account:
-    service_account_id: b7e490b6-8b8f-4526-a61b-45b9267efc51
-    service_account_secret: ca^md$MhCv07w@&6kq$ieWd0*z1VJtLS
+    service_account_id: da80db44-7d57-4c72-9f9a-0f190c5ef09e
+    service_account_secret: 7@N0SDNKfjth7*AhxM$gLxin%MQAjojX
