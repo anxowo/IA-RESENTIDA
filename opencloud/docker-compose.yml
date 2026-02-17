@@ -2,13 +2,21 @@ services:
   opencloud:
     image: owncloud/ocis:latest
     container_name: opencloud
+
+    user: "1000:1000"
+
     ports:
       - "9200:9200"
+
     environment:
-      OCIS_URL: "http://26.195.60.25:9200"
       OCIS_INSECURE: "true"
-      OCIS_LOG_LEVEL: "info"
+      HOME: "/var/lib/ocis"
+
     volumes:
       - ./data:/var/lib/ocis
+      - ./data/config:/etc/ocis
+
+    command: server
+
     restart: unless-stopped
 
