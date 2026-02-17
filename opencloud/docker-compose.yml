@@ -1,5 +1,3 @@
-version: "3.7"
-
 services:
   opencloud:
     image: owncloud/ocis:latest
@@ -7,12 +5,9 @@ services:
     ports:
       - "9200:9200"
     environment:
+      OCIS_URL: "http://26.195.60.25:9200"
       OCIS_INSECURE: "true"
-      OCIS_URL: "http://localhost:9200"
       OCIS_LOG_LEVEL: "info"
-      OCIS_LOG_COLOR: "true"
-      OCIS_ADMIN_USER_ID: "admin"
-      OCIS_ADMIN_PASSWORD: "admin123"
     volumes:
       - ./data:/var/lib/ocis
     restart: unless-stopped
