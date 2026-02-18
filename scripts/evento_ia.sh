@@ -4,30 +4,34 @@
 REPO_DIR="/opt/IA-RESENTIDA"
 LOG_FILE="$REPO_DIR/reportes_bot/bitacora.md"
 FECHA=$(date "+%Y-%m-%d %H:%M:%S")
+ACCION="$1" # El texto que pongas entre comillas al ejecutar
 
-# El mensaje es lo que tú escribas al llamar al script
-MENSAJE_ACCION="$1"
-
-# Si no escribes nada, se queja y sale
-if [ -z "$MENSAJE_ACCION" ]; then
-  echo "Error: Debes indicar qué acción hiciste. Ej: ./evento_ia.sh 'Reiniciar SSH'"
+# Validación: Si no dices qué hiciste, el script se para
+if [ -z "$ACCION" ]; then
+  echo "Error: Debes describir la acción. Ejemplo: ./evento_ia.sh 'Instalar Docker'"
   exit 1
 fi
 
-# 1. ESCRIBIR EN BITÁCORA
-echo "| $FECHA | **$MENSAJE_ACCION** | Completado |" >> $LOG_FILE
-
-# 2. SUBIR A GITHUB INMEDIATAMENTE
 cd $REPO_DIR
 
-# Nos aseguramos de tener lo último de los compañeros
-git pull origin main --rebase > /dev/null 2>&1
+# 1. REGISTRO EN BITÁCORA (Diario local)
+if [ ! -f "$LOG_FILE" ]; then
+    echo "| Fecha | Acción | Estado |" > "$LOG_FILE"
+    echo "|---|---|---|" >> "$LOG_FILE"
+fi
+echo "| $FECHA | **$ACCION** | ✅ Completado |" >> "$LOG_FILE"
 
+# 2. GUARDADO DE SEGURIDAD (Backup Local)
+# Primero aseguramos lo que acaba de pasar en el servidor
 git add .
+# El "|| true" es para que no falle si no hay cambios nuevos, pero siga adelante
+git commit -m "Accion IA: $ACCION" || true
 
-# Mensaje del commit
-git commit -m "Accion de IA: $MENSAJE_ACCION"
+# 3. SINCRONIZACIÓN (Nube)
+# Bajamos cambios de GitHub con rebase para no romper el historial
+git pull origin main --rebase
 
+# 4. SUBIDA FINAL
 git push origin main
 
-echo "Acción registrada y subida a GitHub: $MENSAJE_ACCION"
+echo "Accion exitosa: $ACCION"
