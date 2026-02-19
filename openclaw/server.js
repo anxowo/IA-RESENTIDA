@@ -13,7 +13,7 @@ app.post("/webhook", async (req, res) => {
   const message = req.body.message;
 
   // Demo visual
-  sendToWarp(message);
+  //sendToWarp(message);
 
   const intent = interpret(message);
 
