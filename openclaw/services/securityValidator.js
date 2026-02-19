@@ -5,10 +5,7 @@ function validateCommand(command) {
     "dd ",
     "shutdown",
     "reboot",
-    "poweroff",
-    "&&",
-    ";",
-    "|"
+    "poweroff"
   ];
 
   for (const pattern of forbiddenPatterns) {
