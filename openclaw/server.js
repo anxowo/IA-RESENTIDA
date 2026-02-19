@@ -1,46 +1,63 @@
 const express = require("express");
-const { execSync } = require("child_process");
+const { exec } = require("child_process");
+
+console.log("INICIANDO SERVIDOR WARP...");
 
 const app = express();
 app.use(express.json());
 
+function run(cmd) {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { env: process.env }, (err, stdout, stderr) => {
+      if (err) return reject(err);
+      resolve(stdout);
+    });
+  });
+}
+
 app.post("/webhook", async (req, res) => {
+  console.log("Petición recibida");
 
   const message = req.body.message;
-
-  if (!message) {
-    return res.send("No message received.");
-  }
+  if (!message) return res.send("No message");
 
   try {
-    // Activar ventana Warp
-    execSync("wmctrl -a Warp");
+    await run(`wmctrl -a Warp`);
+    await run(`xdotool type --delay 10 "${message.replace(/"/g, '\\"')}"`);
+    await run(`xdotool key Return`);
 
-    // Escribir mensaje
-    execSync(`xdotool type "${message}"`);
+    await new Promise(r => setTimeout(r, 4000));
 
-    // Pulsar Enter
-    execSync("xdotool key Return");
+    await run(`xdotool key ctrl+a`);
+    await run(`xdotool key ctrl+c`);
 
-    // Esperar a que Warp responda
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 500));
 
-    // Seleccionar todo y copiar
-    execSync("xdotool key ctrl+a");
-    execSync("xdotool key ctrl+c");
-
-    // Leer clipboard
-    const output = execSync("xclip -o -selection clipboard").toString();
+    const output = await run(`xclip -o -selection clipboard`);
 
     res.send(output);
 
-  } catch (err) {
-    res.send("Error interactuando con Warp:\n" + err.message);
+  } catch (e) {
+    console.error("Error:", e);
+    res.send("Error:\n" + e.message);
   }
-
 });
 
-app.listen(3000, () => {
-  console.log("Servidor usando Warp GUI en puerto 3000");
+const PORT = 3000;
+
+app.listen(PORT, () => {
+  console.log(`Servidor Warp UI activo en ${PORT}`);
 });
+
+// Esto evita que el proceso muera por error silencioso
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err);
+});
+
+// Mantener vivo explícitamente
+setInterval(() => {}, 10000);
 
