@@ -19,13 +19,13 @@ const { exec } = require("child_process");
 
 function executeCommand(command) {
     return new Promise((resolve, reject) => {
-        // Envolvemos el comando en la herramienta de Warp
-        const warpCommand = `warp-cli run "${command}"`;
-        
-        exec(warpCommand, { maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+        // Ejecución limpia y directa en el bash de Ubuntu
+        exec(command, { maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
             if (error) {
+                // Si el comando falla (ej. Apache no existe), capturamos el error
                 reject(stderr || error.message);
             } else {
+                // Si funciona, devolvemos el resultado
                 resolve(stdout);
             }
         });
