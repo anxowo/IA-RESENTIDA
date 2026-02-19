@@ -1,45 +1,44 @@
 const express = require("express");
 const { exec } = require("child_process");
 
-console.log("INICIANDO SERVIDOR DIRECTO...");
+console.log("INICIANDO SERVIDOR WARP AGENT...");
 
 const app = express();
 app.use(express.json());
 
-function runCommand(command) {
+function runWarpAgent(prompt) {
   return new Promise((resolve, reject) => {
-    exec(command, {
-      maxBuffer: 1024 * 1024 * 10,
-      timeout: 60000
-    }, (error, stdout, stderr) => {
-      if (error) {
-        return resolve(stderr || error.message);
+    exec(
+      `warp-terminal agent run --output-format text --prompt "${prompt.replace(/"/g, '\\"')}"`,
+      { maxBuffer: 1024 * 1024 * 10 },
+      (error, stdout, stderr) => {
+        if (error) {
+          return reject(stderr || error.message);
+        }
+        resolve(stdout);
       }
-      resolve(stdout || stderr);
-    });
+    );
   });
 }
 
 app.post("/webhook", async (req, res) => {
-  console.log("Petición recibida");
-
   const message = req.body.message;
 
   if (!message) {
-    return res.send("No se recibió comando.");
+    return res.send("No se recibió mensaje.");
   }
 
   try {
-    const result = await runCommand(message);
+    const result = await runWarpAgent(message);
     res.send(result);
   } catch (err) {
-    res.send("Error:\n" + err.message);
+    res.send("Error:\n" + err);
   }
 });
 
 const PORT = 3000;
 
 app.listen(PORT, () => {
-  console.log(`Servidor ejecutando comandos en puerto ${PORT}`);
+  console.log(`Servidor Warp Agent activo en ${PORT}`);
 });
 
