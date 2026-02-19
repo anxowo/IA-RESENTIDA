@@ -1,77 +1,128 @@
 const express = require("express");
-const app = express();
+const { exec } = require("child_process");
 
+console.log("INICIO DEL SERVIDOR...");
+
+const app = express();
 app.use(express.json());
 
-const interpret = require("./services/aiInterpreter");
-const mapToCommand = require("./services/commandMapper");
-const executeCommand = require("./services/commandExecutor");
-const validateCommand = require("./services/securityValidator");
-//const sendToWarp = require("./services/warpSender");
+/* ===============================
+   FUNCIONES AUXILIARES
+================================= */
 
-//app.post("/webhook", async (req, res) => {
-  //const message = req.body.message;
+// Interpretador simple (puedes mejorar luego)
+function interpret(message) {
+  message = message.toLowerCase();
 
-  // Demo visual
-  //sendToWarp(message);
+  if (message.includes("servicios")) {
+    return {
+      action: "list_services"
+    };
+  }
 
-  //const intent = interpret(message);
+  if (message.includes("reinicia") && message.includes("apache")) {
+    return {
+      action: "restart_apache"
+    };
+  }
 
-//  if (!intent) {
-  //  return res.send("[openclaw] No entiendo la petición.");
-//  }
+  return null;
+}
 
-  //const command = mapToCommand(intent);
+// Mapeo intención → comando
+function mapToCommand(intent) {
+  switch (intent.action) {
+    case "list_services":
+      return "systemctl list-units --type=service --state=running --no-legend";
 
-//  if (!command) {
-  //  return res.send("[openclaw] No puedo ejecutar esa acción.");
-  //}
+    case "restart_apache":
+      return "systemctl restart apache2";
 
-  //if (!validateCommand(command)) {
-    //return res.send("[openclaw] Comando bloqueado por seguridad.");
-  //}
+    default:
+      return null;
+  }
+}
 
-  //try {
-    //const result = await executeCommand(command);
-    //return res.send("[openclaw]\n\n" + result);
-  //} catch (err) {
-    //return res.send("[openclaw] Error:\n" + err);
-  //}
-//});
+// Seguridad básica
+function validateCommand(command) {
+  const forbidden = ["rm ", "mkfs", "dd ", "shutdown", "reboot", "poweroff", "&&", ";", "|"];
+
+  for (let word of forbidden) {
+    if (command.includes(word)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Ejecutar comando con timeout
+function executeCommand(command) {
+  return new Promise((resolve, reject) => {
+    exec(command, {
+      maxBuffer: 1024 * 1024,
+      timeout: 5000
+    }, (error, stdout, stderr) => {
+      if (error) {
+        return reject(error.message);
+      }
+      resolve(stdout || stderr);
+    });
+  });
+}
+
+/* ===============================
+   ENDPOINT
+================================= */
 
 app.post("/webhook", async (req, res) => {
-    try {
-        console.log("1. Petición recibida. Mensaje:", req.body.message);
-        const message = req.body.message;
+  console.log("Petición recibida:", req.body);
 
-        if (!message) {
-            return res.send("[openclaw] El JSON no contenía un mensaje válido.");
-        }
+  const message = req.body.message;
 
-        console.log("2. Interpretando intención...");
-        const intent = interpret(message);
-        if (!intent) return res.send("[openclaw] No entiendo la petición.");
+  if (!message) {
+    return res.send("[openclaw] No se recibió mensaje.");
+  }
 
-        console.log("3. Mapeando comando...");
-        const command = mapToCommand(intent);
-        if (!command) return res.send("[openclaw] No puedo ejecutar esa acción.");
+  const intent = interpret(message);
+  if (!intent) {
+    return res.send("[openclaw] No entiendo la petición.");
+  }
 
-        console.log("4. Validando seguridad...");
-        if (!validateCommand(command)) return res.send("[openclaw] Comando bloqueado por seguridad.");
+  const command = mapToCommand(intent);
+  if (!command) {
+    return res.send("[openclaw] No puedo ejecutar esa acción.");
+  }
 
-        console.log(`5. Disparando Warp CLI: ${command}`);
-        const result = await executeCommand(command);
-        
-        console.log("6. ¡Ejecución exitosa!");
-        return res.send("[openclaw] Resultado:\n" + result);
+  if (!validateCommand(command)) {
+    return res.send("[openclaw] Comando bloqueado por seguridad.");
+  }
 
-    } catch (err) {
-        console.error("❌ Falla crítica detectada:", err);
-        return res.send("[openclaw] Error interno del servidor:\n" + err.message);
-    }
+  try {
+    const result = await executeCommand(command);
+    return res.send("[openclaw]\n\n" + result);
+  } catch (err) {
+    console.error("Error ejecutando comando:", err);
+    return res.send("[openclaw] Error:\n" + err);
+  }
 });
 
-app.listen(3000, () => {
-  console.log("OpenClaw corriendo en puerto 3000");
+/* ===============================
+   ARRANQUE DEL SERVIDOR
+================================= */
+
+const PORT = 3000;
+
+const server = app.listen(PORT, () => {
+  console.log(`OpenClaw corriendo en puerto ${PORT}`);
 });
+
+server.on("error", (err) => {
+  console.error("ERROR AL INICIAR EL SERVIDOR:", err);
+});
+
+// Mantener proceso vivo explícitamente
+setInterval(() => {
+  console.log("Servidor activo...");
+}, 10000);
 
