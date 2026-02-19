@@ -15,36 +15,39 @@ function run(cmd) {
 
 async function sendToWarp(message) {
   try {
-    // Activar Warp
     await run(`wmctrl -x -a warp.Warp`);
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 800));
 
-    const safeMessage = message.replace(/"/g, '\\"');
+    const safeMessage = `
+Ejecuta directamente el comando necesario.
+No expliques nada.
+Redirige la salida al archivo /tmp/warp_output.txt.
 
-    // Escribir mensaje
+${message} > /tmp/warp_output.txt 2>&1
+    `.replace(/"/g, '\\"');
+
     await run(`xdotool type --delay 5 "${safeMessage}"`);
     await new Promise(r => setTimeout(r, 300));
     await run(`xdotool key Return`);
 
-    // 🔥 Esperar a que Warp piense y ejecute
-    await new Promise(r => setTimeout(r, 10000));
+    // Esperar hasta que el archivo exista y tenga contenido
+    let attempts = 0;
+    while (attempts < 60) { // hasta 30s
+      await new Promise(r => setTimeout(r, 500));
 
-    // Obtener último comando ejecutado en bash
-    await run(`xdotool type "fc -ln -1 > /tmp/last_command.txt"`);
-    await run(`xdotool key Return`);
-    await new Promise(r => setTimeout(r, 1000));
+      const exists = await run(`test -f /tmp/warp_output.txt && echo yes || echo no`);
 
-    const lastCommand = await run(`cat /tmp/last_command.txt`);
-    const cleanCommand = lastCommand.trim();
+      if (exists.trim() === "yes") {
+        const size = await run(`stat -c%s /tmp/warp_output.txt`);
+        if (parseInt(size) > 0) break;
+      }
 
-    if (!cleanCommand) {
-      return "No se pudo detectar el comando ejecutado por Warp.";
+      attempts++;
     }
 
-    // Ejecutar el comando directamente y capturar salida real
-    const output = await run(`${cleanCommand} 2>&1`);
+    const output = await run(`cat /tmp/warp_output.txt 2>&1 || echo ""`);
 
-    return output || "Comando ejecutado sin salida.";
+    return output.trim() || "Comando ejecutado sin salida.";
 
   } catch (error) {
     return `Error interactuando con Warp:\n${error}`;
