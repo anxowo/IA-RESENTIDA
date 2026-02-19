@@ -1,47 +1,46 @@
 const express = require("express");
-const pty = require("node-pty");
-
-console.log("INICIANDO SERVIDOR CON WARP...");
+const { execSync } = require("child_process");
 
 const app = express();
 app.use(express.json());
 
-// Lanzamos Warp como proceso persistente
-const warpProcess = pty.spawn("warp", [], {
-  name: "xterm-color",
-  cols: 120,
-  rows: 40,
-  cwd: process.cwd(),
-  env: process.env
-});
-
-let lastOutput = "";
-
-warpProcess.onData((data) => {
-  lastOutput += data;
-});
-
-// Endpoint
 app.post("/webhook", async (req, res) => {
+
   const message = req.body.message;
 
   if (!message) {
     return res.send("No message received.");
   }
 
-  lastOutput = "";
+  try {
+    // Activar ventana Warp
+    execSync("wmctrl -a Warp");
 
-  // Enviamos mensaje a Warp
-  warpProcess.write(message + "\r");
+    // Escribir mensaje
+    execSync(`xdotool type "${message}"`);
 
-  // Esperamos 2 segundos a que Warp procese
-  setTimeout(() => {
-    const response = lastOutput.trim();
-    res.send(response || "Sin respuesta de Warp");
-  }, 2000);
+    // Pulsar Enter
+    execSync("xdotool key Return");
+
+    // Esperar a que Warp responda
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Seleccionar todo y copiar
+    execSync("xdotool key ctrl+a");
+    execSync("xdotool key ctrl+c");
+
+    // Leer clipboard
+    const output = execSync("xclip -o -selection clipboard").toString();
+
+    res.send(output);
+
+  } catch (err) {
+    res.send("Error interactuando con Warp:\n" + err.message);
+  }
+
 });
 
 app.listen(3000, () => {
-  console.log("Servidor escuchando en puerto 3000");
+  console.log("Servidor usando Warp GUI en puerto 3000");
 });
 
