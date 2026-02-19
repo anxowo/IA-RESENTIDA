@@ -1,13 +1,29 @@
 const express = require("express");
 const { exec } = require("child_process");
-const util = require("util");
-
-const run = util.promisify(exec);
 
 const app = express();
 app.use(express.json());
 
 const PORT = 3000;
+
+/* -------------------------------------------------- */
+/* RUN con buffer grande                             */
+/* -------------------------------------------------- */
+
+function run(command) {
+  return new Promise((resolve, reject) => {
+    exec(
+      command,
+      { maxBuffer: 1024 * 1024 * 10 }, // 10MB
+      (error, stdout, stderr) => {
+        if (error && !stdout) {
+          return reject(stderr || error.message);
+        }
+        resolve({ stdout, stderr });
+      }
+    );
+  });
+}
 
 /* -------------------------------------------------- */
 /* FUNCION PRINCIPAL                                 */
@@ -19,7 +35,7 @@ async function sendToWarp(message) {
     await run(`wmctrl -x -a warp.Warp`);
     await new Promise(r => setTimeout(r, 1000));
 
-    // Limpiar archivo anterior
+    // Borrar archivo anterior
     await run(`rm -f /tmp/warp_output.txt`);
 
     const safeMessage = `
@@ -33,13 +49,13 @@ Redirige la salida EXACTAMENTE así:
 Petición: ${message}
     `.replace(/"/g, '\\"');
 
-    // Escribir mensaje
+    // Escribir en Warp
     await run(`xdotool type --delay 10 "${safeMessage}"`);
     await new Promise(r => setTimeout(r, 300));
     await run(`xdotool key Return`);
 
     /* -------------------------------------------- */
-    /* Esperar a que se cree el archivo             */
+    /* Esperar a que el archivo exista              */
     /* -------------------------------------------- */
 
     let exists = false;
@@ -62,7 +78,7 @@ Petición: ${message}
     }
 
     /* -------------------------------------------- */
-    /* Esperar a que deje de crecer                 */
+    /* Esperar a que el archivo deje de crecer      */
     /* -------------------------------------------- */
 
     let lastSize = 0;
@@ -87,11 +103,17 @@ Petición: ${message}
     /* Leer salida final                            */
     /* -------------------------------------------- */
 
-    const output = await run(
+    const outputResult = await run(
       `cat /tmp/warp_output.txt 2>&1 || echo ""`
     );
 
-    return output.stdout.trim() || "Comando ejecutado sin salida.";
+    const finalOutput = outputResult.stdout.trim();
+
+    if (!finalOutput) {
+      return "Comando ejecutado sin salida.";
+    }
+
+    return finalOutput;
 
   } catch (error) {
     return `Error interactuando con Warp:\n${error}`;
@@ -103,20 +125,31 @@ Petición: ${message}
 /* -------------------------------------------------- */
 
 app.post("/webhook", async (req, res) => {
-  const { message } = req.body;
+  try {
+    const { message } = req.body;
 
-  if (!message) {
-    return res.status(400).json({ error: "Falta el campo message" });
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        error: "Falta el campo message"
+      });
+    }
+
+    console.log("Petición recibida:", message);
+
+    const result = await sendToWarp(message);
+
+    res.json({
+      success: true,
+      output: result
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.toString()
+    });
   }
-
-  console.log("Petición recibida:", message);
-
-  const result = await sendToWarp(message);
-
-  res.json({
-    success: true,
-    output: result
-  });
 });
 
 /* -------------------------------------------------- */
