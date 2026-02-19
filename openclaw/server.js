@@ -7,7 +7,7 @@ const interpret = require("./services/aiInterpreter");
 const mapToCommand = require("./services/commandMapper");
 const executeCommand = require("./services/commandExecutor");
 const validateCommand = require("./services/securityValidator");
-const sendToWarp = require("./services/warpSender");
+//const sendToWarp = require("./services/warpSender");
 
 app.post("/webhook", async (req, res) => {
   const message = req.body.message;
