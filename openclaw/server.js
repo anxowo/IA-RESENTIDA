@@ -1,128 +1,47 @@
 const express = require("express");
-const { exec } = require("child_process");
+const pty = require("node-pty");
 
-console.log("INICIO DEL SERVIDOR...");
+console.log("INICIANDO SERVIDOR CON WARP...");
 
 const app = express();
 app.use(express.json());
 
-/* ===============================
-   FUNCIONES AUXILIARES
-================================= */
+// Lanzamos Warp como proceso persistente
+const warpProcess = pty.spawn("warp", [], {
+  name: "xterm-color",
+  cols: 120,
+  rows: 40,
+  cwd: process.cwd(),
+  env: process.env
+});
 
-// Interpretador simple (puedes mejorar luego)
-function interpret(message) {
-  message = message.toLowerCase();
+let lastOutput = "";
 
-  if (message.includes("servicios")) {
-    return {
-      action: "list_services"
-    };
-  }
+warpProcess.onData((data) => {
+  lastOutput += data;
+});
 
-  if (message.includes("reinicia") && message.includes("apache")) {
-    return {
-      action: "restart_apache"
-    };
-  }
-
-  return null;
-}
-
-// Mapeo intención → comando
-function mapToCommand(intent) {
-  switch (intent.action) {
-    case "list_services":
-      return "systemctl list-units --type=service --state=running --no-legend";
-
-    case "restart_apache":
-      return "systemctl restart apache2";
-
-    default:
-      return null;
-  }
-}
-
-// Seguridad básica
-function validateCommand(command) {
-  const forbidden = ["rm ", "mkfs", "dd ", "shutdown", "reboot", "poweroff", "&&", ";", "|"];
-
-  for (let word of forbidden) {
-    if (command.includes(word)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Ejecutar comando con timeout
-function executeCommand(command) {
-  return new Promise((resolve, reject) => {
-    exec(command, {
-      maxBuffer: 1024 * 1024,
-      timeout: 5000
-    }, (error, stdout, stderr) => {
-      if (error) {
-        return reject(error.message);
-      }
-      resolve(stdout || stderr);
-    });
-  });
-}
-
-/* ===============================
-   ENDPOINT
-================================= */
-
+// Endpoint
 app.post("/webhook", async (req, res) => {
-  console.log("Petición recibida:", req.body);
-
   const message = req.body.message;
 
   if (!message) {
-    return res.send("[openclaw] No se recibió mensaje.");
+    return res.send("No message received.");
   }
 
-  const intent = interpret(message);
-  if (!intent) {
-    return res.send("[openclaw] No entiendo la petición.");
-  }
+  lastOutput = "";
 
-  const command = mapToCommand(intent);
-  if (!command) {
-    return res.send("[openclaw] No puedo ejecutar esa acción.");
-  }
+  // Enviamos mensaje a Warp
+  warpProcess.write(message + "\r");
 
-  if (!validateCommand(command)) {
-    return res.send("[openclaw] Comando bloqueado por seguridad.");
-  }
-
-  try {
-    const result = await executeCommand(command);
-    return res.send("[openclaw]\n\n" + result);
-  } catch (err) {
-    console.error("Error ejecutando comando:", err);
-    return res.send("[openclaw] Error:\n" + err);
-  }
+  // Esperamos 2 segundos a que Warp procese
+  setTimeout(() => {
+    const response = lastOutput.trim();
+    res.send(response || "Sin respuesta de Warp");
+  }, 2000);
 });
 
-/* ===============================
-   ARRANQUE DEL SERVIDOR
-================================= */
-
-const PORT = 3000;
-
-const server = app.listen(PORT, () => {
-  console.log(`OpenClaw corriendo en puerto ${PORT}`);
+app.listen(3000, () => {
+  console.log("Servidor escuchando en puerto 3000");
 });
-
-server.on("error", (err) => {
-  console.error("ERROR AL INICIAR EL SERVIDOR:", err);
-});
-
-// Mantener proceso vivo explícitamente
-setInterval(() => {
-  console.log("Servidor activo...");
-}, 10000);
 
