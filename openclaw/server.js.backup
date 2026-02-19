@@ -1,0 +1,28 @@
+// 🤖 Función para consultar a Ollama (local, gratis)
+async function consultarIA(mensajeUsuario) {
+  try {
+    const response = await fetch('http://127.0.0.1:11434/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'phi3:mini',  // o el modelo que hayas descargado
+        prompt: SYSTEM_PROMPT + "\n\nUsuario: " + mensajeUsuario,
+        stream: false,
+        options: { 
+          temperature: 0.1,   // Respuestas consistentes
+          num_predict: 100    // Limitar longitud
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.response.trim();
+  } catch (error) {
+    console.error("❌ Error con Ollama:", error.message);
+    return "⚠️ Error: IA local no responde. Verifica: ollama serve";
+  }
+}
