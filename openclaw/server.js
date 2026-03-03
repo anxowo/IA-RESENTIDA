@@ -8,9 +8,9 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-/* -------------------------------------------------- */
-/* RUN helper                                         */
-/* -------------------------------------------------- */
+/* ===================================================== */
+/* RUN helper                                            */
+/* ===================================================== */
 
 function run(command) {
   return new Promise((resolve, reject) => {
@@ -27,41 +27,36 @@ function run(command) {
   });
 }
 
-/* -------------------------------------------------- */
-/* FUNCION PRINCIPAL                                  */
-/* -------------------------------------------------- */
+/* ===================================================== */
+/* FUNCIÓN PRINCIPAL                                    */
+/* ===================================================== */
 
 async function sendToWarp(message) {
   try {
-
-    // Intentar traer Warp al frente (si falla, seguimos)
+    // Intentar traer Warp al frente (si falla seguimos)
     try {
       await run(`wmctrl -x -a warp.Warp`);
       await new Promise(r => setTimeout(r, 800));
     } catch {}
 
-    // Preparar archivo de salida
+    // Preparar archivo de salida limpio
     await run(`rm -f /tmp/warp_output.txt`);
     await run(`touch /tmp/warp_output.txt`);
     await run(`chmod 666 /tmp/warp_output.txt`);
 
-    // Prompt seguro
-const safeMessage = `
-Genera un comando Linux válido para esta petición.
+    // Prompt SIMPLE y limpio (sin bugs raros)
+const safeMessage = `Genera un comando Linux válido para esta petición.
 Ejecuta el comando.
-Si no produce salida, imprime una línea breve usando echo.
 Redirige TODO a /tmp/warp_output.txt 2>&1
-
-Petición: ${message}
-`.replace(/"/g, '\\"');
+Petición: ${message}`.trim().replace(/"/g, '\\"');
     // Escribir en Warp
     await run(`xdotool type --delay 1 "${safeMessage}"`);
     await new Promise(r => setTimeout(r, 200));
     await run(`xdotool key Return`);
 
-    /* -------------------------------------------- */
-    /* Esperar a que el archivo exista              */
-    /* -------------------------------------------- */
+    /* ===================================================== */
+    /* Esperar a que el archivo exista                       */
+    /* ===================================================== */
 
     let exists = false;
 
@@ -82,9 +77,9 @@ Petición: ${message}
       return "Warp no generó archivo de salida.";
     }
 
-    /* -------------------------------------------- */
-    /* Esperar a que el archivo deje de crecer      */
-    /* -------------------------------------------- */
+    /* ===================================================== */
+    /* Esperar a que el archivo deje de crecer               */
+    /* ===================================================== */
 
     let lastSize = 0;
     let stableCount = 0;
@@ -97,16 +92,16 @@ Petición: ${message}
 
       if (size === lastSize) {
         stableCount++;
-        if (stableCount >= 4) break; // 2s estable
+        if (stableCount >= 4) break; // 2 segundos estable
       } else {
         stableCount = 0;
         lastSize = size;
       }
     }
 
-    /* -------------------------------------------- */
-    /* Leer salida                                  */
-    /* -------------------------------------------- */
+    /* ===================================================== */
+    /* Leer salida                                           */
+    /* ===================================================== */
 
     const outputResult = await run(
       `cat /tmp/warp_output.txt 2>&1 || echo ""`
@@ -114,9 +109,9 @@ Petición: ${message}
 
     const finalOutput = outputResult.stdout.trim();
 
-	if (!finalOutput) {
- 	 return `✔ Operación realizada correctamente.`;
-	}
+    if (!finalOutput) {
+      return `✔ Acción completada correctamente: ${message}`;
+    }
 
     return finalOutput;
 
@@ -125,9 +120,9 @@ Petición: ${message}
   }
 }
 
-/* -------------------------------------------------- */
-/* ENDPOINTS                                          */
-/* -------------------------------------------------- */
+/* ===================================================== */
+/* ENDPOINT CHAT                                         */
+/* ===================================================== */
 
 app.post("/chat", async (req, res) => {
   try {
@@ -155,7 +150,7 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-/* -------------------------------------------------- */
+/* ===================================================== */
 
 app.listen(PORT, () => {
   console.log(`Servidor Warp UI activo en puerto ${PORT}`);
