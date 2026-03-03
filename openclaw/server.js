@@ -46,20 +46,29 @@ async function sendToWarp(message) {
     await run(`chmod 666 /tmp/warp_output.txt`);
 
     // Prompt seguro
-    const safeMessage = `
+const safeMessage = `
 Convierte la petición a un comando Linux válido.
-Ejecuta SOLO el comando.
-NO expliques nada.
-Redirige SIEMPRE la salida EXACTAMENTE así:
+Ejecuta el comando.
+Después imprime una explicación breve (máximo una línea) de lo que se hizo.
+Luego imprime la salida real del comando.
 
-<comando> > /tmp/warp_output.txt 2>&1
+Formato obligatorio:
 
-Ejemplo:
-ls > /tmp/warp_output.txt 2>&1
+=== RESULTADO ===
+<explicación breve>
+
+=== SALIDA ===
+<salida del comando>
+
+Redirige TODO a:
+
+/tmp/warp_output.txt
+
+Ejemplo correcto:
+echo hola
 
 Petición: ${message}
-    `.replace(/"/g, '\\"');
-
+`.replace(/"/g, '\\"');
     // Escribir en Warp
     await run(`xdotool type --delay 8 "${safeMessage}"`);
     await new Promise(r => setTimeout(r, 200));
