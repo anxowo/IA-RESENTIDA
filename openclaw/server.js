@@ -2,16 +2,14 @@ const express = require("express");
 const { exec } = require("child_process");
 const path = require("path");
 
-const app = express(); // 👈 PRIMERO se declara
+const app = express();
 const PORT = 3000;
 
 app.use(express.json());
-
-// Servir chat web
 app.use(express.static(path.join(__dirname, "public")));
 
 /* -------------------------------------------------- */
-/* RUN con buffer grande                             */
+/* RUN helper                                         */
 /* -------------------------------------------------- */
 
 function run(command) {
@@ -30,36 +28,50 @@ function run(command) {
 }
 
 /* -------------------------------------------------- */
-/* FUNCION PRINCIPAL                                 */
+/* FUNCION PRINCIPAL                                  */
 /* -------------------------------------------------- */
 
 async function sendToWarp(message) {
   try {
-    await run(`wmctrl -x -a warp.Warp`);
-    await new Promise(r => setTimeout(r, 1000));
 
+    // Intentar traer Warp al frente (si falla, seguimos)
+    try {
+      await run(`wmctrl -x -a warp.Warp`);
+      await new Promise(r => setTimeout(r, 800));
+    } catch {}
+
+    // Preparar archivo de salida
     await run(`rm -f /tmp/warp_output.txt`);
+    await run(`touch /tmp/warp_output.txt`);
+    await run(`chmod 666 /tmp/warp_output.txt`);
 
+    // Prompt seguro
     const safeMessage = `
 Convierte la petición a un comando Linux válido.
 Ejecuta SOLO el comando.
-No expliques nada.
-Redirige la salida EXACTAMENTE así:
+NO expliques nada.
+Redirige SIEMPRE la salida EXACTAMENTE así:
 
 <comando> > /tmp/warp_output.txt 2>&1
+
+Ejemplo:
+ls > /tmp/warp_output.txt 2>&1
 
 Petición: ${message}
     `.replace(/"/g, '\\"');
 
-    await run(`xdotool type --delay 10 "${safeMessage}"`);
-    await new Promise(r => setTimeout(r, 300));
+    // Escribir en Warp
+    await run(`xdotool type --delay 8 "${safeMessage}"`);
+    await new Promise(r => setTimeout(r, 200));
     await run(`xdotool key Return`);
 
-    /* Esperar archivo */
+    /* -------------------------------------------- */
+    /* Esperar a que el archivo exista              */
+    /* -------------------------------------------- */
 
     let exists = false;
 
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 120; i++) { // hasta 60s
       await new Promise(r => setTimeout(r, 500));
 
       const check = await run(
@@ -76,7 +88,9 @@ Petición: ${message}
       return "Warp no generó archivo de salida.";
     }
 
-    /* Esperar estabilidad */
+    /* -------------------------------------------- */
+    /* Esperar a que el archivo deje de crecer      */
+    /* -------------------------------------------- */
 
     let lastSize = 0;
     let stableCount = 0;
@@ -89,12 +103,16 @@ Petición: ${message}
 
       if (size === lastSize) {
         stableCount++;
-        if (stableCount >= 4) break;
+        if (stableCount >= 4) break; // 2s estable
       } else {
         stableCount = 0;
         lastSize = size;
       }
     }
+
+    /* -------------------------------------------- */
+    /* Leer salida                                  */
+    /* -------------------------------------------- */
 
     const outputResult = await run(
       `cat /tmp/warp_output.txt 2>&1 || echo ""`
@@ -114,36 +132,8 @@ Petición: ${message}
 }
 
 /* -------------------------------------------------- */
-/* ENDPOINTS                                         */
+/* ENDPOINTS                                          */
 /* -------------------------------------------------- */
-
-app.post("/webhook", async (req, res) => {
-  try {
-    const { message } = req.body;
-
-    if (!message) {
-      return res.status(400).json({
-        success: false,
-        error: "Falta el campo message"
-      });
-    }
-
-    console.log("Petición recibida:", message);
-
-    const result = await sendToWarp(message);
-
-    res.json({
-      success: true,
-      output: result
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.toString()
-    });
-  }
-});
 
 app.post("/chat", async (req, res) => {
   try {
