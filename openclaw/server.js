@@ -16,7 +16,7 @@ function run(command) {
   return new Promise((resolve, reject) => {
     exec(
       command,
-      { maxBuffer: 1024 * 1024 * 10 }, // 10MB
+      { maxBuffer: 1024 * 1024 * 20 }, // 20MB por si systemctl devuelve mucho
       (error, stdout, stderr) => {
         if (error && !stdout) {
           return reject(stderr || error.message);
@@ -33,75 +33,50 @@ function run(command) {
 
 async function sendToWarp(message) {
   try {
-    /* Traer Warp al frente (si falla, seguimos) */
+    /* Traer Warp al frente */
     try {
       await run(`wmctrl -x -a warp.Warp`);
       await new Promise(r => setTimeout(r, 800));
     } catch (e) {}
 
-    /* Preparar archivo limpio */
+    /* Limpiar archivo */
     await run(`rm -f /tmp/warp_output.txt`);
     await run(`touch /tmp/warp_output.txt`);
     await run(`chmod 666 /tmp/warp_output.txt`);
 
-    /* Prompt SIMPLE (sin cosas raras) */
-    const safeMessage = `
+    /* Prompt SIMPLE */
+const safeMessage = `
 Genera un comando Linux válido.
 Ejecuta el comando.
-Redirige la salida a /tmp/warp_output.txt 2>&1
+Redirige la salida usando:
+
+| tee /tmp/warp_output.txt
+
 Petición: ${message}
 `.trim().replace(/"/g, '\\"');
-
-    /* Escribir en Warp (más lento para evitar errores tipo 2x&1) */
+    /* Escribir en Warp */
     await run(`xdotool type --delay 20 "${safeMessage}"`);
     await new Promise(r => setTimeout(r, 300));
     await run(`xdotool key Return`);
 
-    /* Esperar a que el archivo exista */
-    let exists = false;
+    /* Esperar a que el archivo tenga contenido real */
+    let finalOutput = "";
 
-    for (let i = 0; i < 120; i++) {
-      await new Promise(r => setTimeout(r, 500));
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 1000));
 
-      const check = await run(
-        `test -f /tmp/warp_output.txt && echo yes || echo no`
-      );
+      const outputResult = await run(`cat /tmp/warp_output.txt`);
+      finalOutput = (outputResult.stdout + outputResult.stderr).trim();
 
-      if (check.stdout.trim() === "yes") {
-        exists = true;
+      if (finalOutput.length > 0) {
         break;
       }
     }
 
-    if (!exists) {
-      return "Warp no generó archivo de salida.";
-    }
-
-    /* Esperar a que el archivo deje de crecer */
-    let lastSize = 0;
-    let stableCount = 0;
-
-    for (let i = 0; i < 120; i++) {
-      await new Promise(r => setTimeout(r, 500));
-
-      const sizeResult = await run(`stat -c%s /tmp/warp_output.txt`);
-      const size = parseInt(sizeResult.stdout.trim());
-
-      if (size === lastSize) {
-        stableCount++;
-        if (stableCount >= 4) break; // 2 segundos estable
-      } else {
-        stableCount = 0;
-        lastSize = size;
-      }
-    }
-
-    /* Leer salida */
-    const outputResult = await run(
-      `cat /tmp/warp_output.txt 2>&1 || echo ""`
-    );
-
-    const finalOutput = outputResult.stdout.trim();
+    /* DEBUG (puedes quitarlo luego) */
+    console.log("----- DEBUG SALIDA -----");
+    console.log(finalOutput);
+    console.log("------------------------");
 
     if (!finalOutput) {
       return `✔ Acción completada correctamente: ${message}`;
