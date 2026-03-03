@@ -1,6 +1,9 @@
 const express = require("express");
 const { exec } = require("child_process");
 
+const path = require("path");
+app.use(express.static(path.join(__dirname, "public")));
+
 const app = express();
 app.use(express.json());
 
@@ -158,3 +161,28 @@ app.listen(PORT, () => {
   console.log(`Servidor Warp UI activo en puerto ${PORT}`);
 });
 
+app.post("/chat", async (req, res) => {
+  try {
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        error: "Mensaje vacío"
+      });
+    }
+
+    const result = await sendToWarp(message);
+
+    res.json({
+      role: "assistant",
+      content: result
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.toString()
+    });
+  }
+});
