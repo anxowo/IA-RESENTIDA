@@ -45,15 +45,18 @@ async function sendToWarp(message) {
     await run(`chmod 666 /tmp/warp_output.txt`);
 
     // Prompt SIMPLE y limpio (sin bugs raros)
-const safeMessage = `Genera un comando Linux válido para esta petición.
-Ejecuta el comando.
-Redirige TODO a /tmp/warp_output.txt 2>&1
-Petición: ${message}`.trim().replace(/"/g, '\\"');
-    // Escribir en Warp
-    await run(`xdotool type --delay 1 "${safeMessage}"`);
-    await new Promise(r => setTimeout(r, 200));
-    await run(`xdotool key Return`);
+const safeMessage = `
+Escribe únicamente el comando Linux.
+No expliques nada.
+La última parte del comando DEBE ser exactamente:
 
+> /tmp/warp_output.txt 2>&1
+
+Petición: ${message}
+`.trim().replace(/"/g, '\\"');
+
+    // Escribir en Warp
+await run(`echo "${safeMessage}" | warp-terminal`);
     /* ===================================================== */
     /* Esperar a que el archivo exista                       */
     /* ===================================================== */
