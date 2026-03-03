@@ -8,9 +8,9 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-/* ===================================================== */
-/* RUN helper                                            */
-/* ===================================================== */
+/* -------------------------------------------------- */
+/* RUN helper                                        */
+/* -------------------------------------------------- */
 
 function run(command) {
   return new Promise((resolve, reject) => {
@@ -27,43 +27,40 @@ function run(command) {
   });
 }
 
-/* ===================================================== */
-/* FUNCIÓN PRINCIPAL                                    */
-/* ===================================================== */
+/* -------------------------------------------------- */
+/* FUNCIÓN PRINCIPAL                                 */
+/* -------------------------------------------------- */
 
 async function sendToWarp(message) {
   try {
-    // Intentar traer Warp al frente (si falla seguimos)
+    /* Traer Warp al frente (si falla, seguimos) */
     try {
       await run(`wmctrl -x -a warp.Warp`);
       await new Promise(r => setTimeout(r, 800));
-    } catch {}
+    } catch (e) {}
 
-    // Preparar archivo de salida limpio
+    /* Preparar archivo limpio */
     await run(`rm -f /tmp/warp_output.txt`);
     await run(`touch /tmp/warp_output.txt`);
     await run(`chmod 666 /tmp/warp_output.txt`);
 
-    // Prompt SIMPLE y limpio (sin bugs raros)
-const safeMessage = `
-Escribe únicamente el comando Linux.
-No expliques nada.
-La última parte del comando DEBE ser exactamente:
-
-> /tmp/warp_output.txt 2>&1
-
+    /* Prompt SIMPLE (sin cosas raras) */
+    const safeMessage = `
+Genera un comando Linux válido.
+Ejecuta el comando.
+Redirige la salida a /tmp/warp_output.txt 2>&1
 Petición: ${message}
 `.trim().replace(/"/g, '\\"');
 
-    // Escribir en Warp
-await run(`echo "${safeMessage}" | warp-terminal`);
-    /* ===================================================== */
-    /* Esperar a que el archivo exista                       */
-    /* ===================================================== */
+    /* Escribir en Warp (más lento para evitar errores tipo 2x&1) */
+    await run(`xdotool type --delay 20 "${safeMessage}"`);
+    await new Promise(r => setTimeout(r, 300));
+    await run(`xdotool key Return`);
 
+    /* Esperar a que el archivo exista */
     let exists = false;
 
-    for (let i = 0; i < 120; i++) { // hasta 60s
+    for (let i = 0; i < 120; i++) {
       await new Promise(r => setTimeout(r, 500));
 
       const check = await run(
@@ -80,10 +77,7 @@ await run(`echo "${safeMessage}" | warp-terminal`);
       return "Warp no generó archivo de salida.";
     }
 
-    /* ===================================================== */
-    /* Esperar a que el archivo deje de crecer               */
-    /* ===================================================== */
-
+    /* Esperar a que el archivo deje de crecer */
     let lastSize = 0;
     let stableCount = 0;
 
@@ -102,10 +96,7 @@ await run(`echo "${safeMessage}" | warp-terminal`);
       }
     }
 
-    /* ===================================================== */
-    /* Leer salida                                           */
-    /* ===================================================== */
-
+    /* Leer salida */
     const outputResult = await run(
       `cat /tmp/warp_output.txt 2>&1 || echo ""`
     );
@@ -123,9 +114,9 @@ await run(`echo "${safeMessage}" | warp-terminal`);
   }
 }
 
-/* ===================================================== */
-/* ENDPOINT CHAT                                         */
-/* ===================================================== */
+/* -------------------------------------------------- */
+/* ENDPOINT CHAT                                     */
+/* -------------------------------------------------- */
 
 app.post("/chat", async (req, res) => {
   try {
@@ -153,7 +144,7 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-/* ===================================================== */
+/* -------------------------------------------------- */
 
 app.listen(PORT, () => {
   console.log(`Servidor Warp UI activo en puerto ${PORT}`);
