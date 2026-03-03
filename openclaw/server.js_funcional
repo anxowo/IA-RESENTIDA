@@ -1,14 +1,13 @@
 const express = require("express");
 const { exec } = require("child_process");
+
 const path = require("path");
+app.use(express.static(path.join(__dirname, "public")));
 
-const app = express(); // 👈 PRIMERO se declara
-const PORT = 3000;
-
+const app = express();
 app.use(express.json());
 
-// Servir chat web
-app.use(express.static(path.join(__dirname, "public")));
+const PORT = 3000;
 
 /* -------------------------------------------------- */
 /* RUN con buffer grande                             */
@@ -35,9 +34,11 @@ function run(command) {
 
 async function sendToWarp(message) {
   try {
+    // Traer Warp al frente
     await run(`wmctrl -x -a warp.Warp`);
     await new Promise(r => setTimeout(r, 1000));
 
+    // Borrar archivo anterior
     await run(`rm -f /tmp/warp_output.txt`);
 
     const safeMessage = `
@@ -51,15 +52,18 @@ Redirige la salida EXACTAMENTE así:
 Petición: ${message}
     `.replace(/"/g, '\\"');
 
+    // Escribir en Warp
     await run(`xdotool type --delay 10 "${safeMessage}"`);
     await new Promise(r => setTimeout(r, 300));
     await run(`xdotool key Return`);
 
-    /* Esperar archivo */
+    /* -------------------------------------------- */
+    /* Esperar a que el archivo exista              */
+    /* -------------------------------------------- */
 
     let exists = false;
 
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 120; i++) { // hasta 60s
       await new Promise(r => setTimeout(r, 500));
 
       const check = await run(
@@ -76,12 +80,14 @@ Petición: ${message}
       return "Warp no generó archivo de salida.";
     }
 
-    /* Esperar estabilidad */
+    /* -------------------------------------------- */
+    /* Esperar a que el archivo deje de crecer      */
+    /* -------------------------------------------- */
 
     let lastSize = 0;
     let stableCount = 0;
 
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 120; i++) { // hasta 60s
       await new Promise(r => setTimeout(r, 500));
 
       const sizeResult = await run(`stat -c%s /tmp/warp_output.txt`);
@@ -89,12 +95,16 @@ Petición: ${message}
 
       if (size === lastSize) {
         stableCount++;
-        if (stableCount >= 4) break;
+        if (stableCount >= 4) break; // 2 segundos estable
       } else {
         stableCount = 0;
         lastSize = size;
       }
     }
+
+    /* -------------------------------------------- */
+    /* Leer salida final                            */
+    /* -------------------------------------------- */
 
     const outputResult = await run(
       `cat /tmp/warp_output.txt 2>&1 || echo ""`
@@ -114,7 +124,7 @@ Petición: ${message}
 }
 
 /* -------------------------------------------------- */
-/* ENDPOINTS                                         */
+/* ENDPOINT                                           */
 /* -------------------------------------------------- */
 
 app.post("/webhook", async (req, res) => {
@@ -145,6 +155,12 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+/* -------------------------------------------------- */
+
+app.listen(PORT, () => {
+  console.log(`Servidor Warp UI activo en puerto ${PORT}`);
+});
+
 app.post("/chat", async (req, res) => {
   try {
     const { message } = req.body;
@@ -169,10 +185,4 @@ app.post("/chat", async (req, res) => {
       error: error.toString()
     });
   }
-});
-
-/* -------------------------------------------------- */
-
-app.listen(PORT, () => {
-  console.log(`Servidor Warp UI activo en puerto ${PORT}`);
 });
