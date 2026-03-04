@@ -8,121 +8,122 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-/* -------------------------------------------------- */
-/* RUN helper                                        */
-/* -------------------------------------------------- */
+/* ---------------------------------- */
+/* Helper para ejecutar comandos      */
+/* ---------------------------------- */
 
 function run(command) {
   return new Promise((resolve, reject) => {
     exec(
       command,
-      { maxBuffer: 1024 * 1024 * 20 }, // 20MB por si systemctl devuelve mucho
+      { maxBuffer: 1024 * 1024 * 20 },
       (error, stdout, stderr) => {
+
         if (error && !stdout) {
           return reject(stderr || error.message);
         }
+
         resolve({ stdout, stderr });
       }
     );
   });
 }
 
-/* -------------------------------------------------- */
-/* FUNCIÓN PRINCIPAL                                 */
-/* -------------------------------------------------- */
+/* ---------------------------------- */
+/* Función que interactúa con Warp    */
+/* ---------------------------------- */
 
 async function sendToWarp(message) {
+
   try {
+
     /* Traer Warp al frente */
     try {
       await run(`wmctrl -x -a warp.Warp`);
-      await new Promise(r => setTimeout(r, 800));
-    } catch (e) {}
+      await new Promise(r => setTimeout(r, 700));
+    } catch(e){}
 
-    /* Limpiar archivo */
+    /* Limpiar archivo de salida */
     await run(`rm -f /tmp/warp_output.txt`);
     await run(`touch /tmp/warp_output.txt`);
     await run(`chmod 666 /tmp/warp_output.txt`);
 
-    /* Prompt SIMPLE */
-const safeMessage = `
-Convierte esta petición en un comando bash ejecutable.
+    /* Solo la petición (NO prompts largos) */
+    const safeMessage = message.replace(/"/g, '\\"');
 
-REGLAS:
-- Devuelve SOLO el comando
-- Sin explicaciones
-- Sin comentarios
-- Una sola linea
+    /* Abrir Warp AI */
+    await run(`xdotool key ctrl+grave`);
+    await new Promise(r => setTimeout(r, 500));
 
-El comando debe guardar la salida usando:
-| tee /tmp/warp_output.txt
+    /* Escribir petición */
+    await run(`xdotool type --delay 15 "${safeMessage}"`);
+    await new Promise(r => setTimeout(r, 300));
 
-Peticion: ${message}
-`.trim().replace(/"/g, '\\"');
+    /* Pedir sugerencia */
+    await run(`xdotool key Return`);
 
-/* Abrir Warp AI */
-await run(`xdotool key ctrl+grave`);
-await new Promise(r => setTimeout(r, 600));
+    /* Esperar a que Warp genere el comando */
+    await new Promise(r => setTimeout(r, 2000));
 
-/* Escribir prompt */
-await run(`xdotool type --delay 20 "${safeMessage}"`);
-await new Promise(r => setTimeout(r, 300));
+    /* Seleccionar sugerencia */
+    await run(`xdotool key Tab`);
+    await new Promise(r => setTimeout(r, 200));
 
-/* Pedir sugerencia */
-await run(`xdotool key Return`);
+    /* Ejecutar comando */
+    await run(`xdotool key Return`);
 
-/* Esperar a que Warp genere la sugerencia */
-await new Promise(r => setTimeout(r, 2000));
-
-/* Seleccionar la sugerencia */
-await run(`xdotool key Tab`);
-await new Promise(r => setTimeout(r, 200));
-
-/* Ejecutar comando sugerido */
-await run(`xdotool key Return`);
-    /* Esperar a que el archivo tenga contenido real */
+    /* Esperar salida real */
     let finalOutput = "";
 
     for (let i = 0; i < 60; i++) {
+
       await new Promise(r => setTimeout(r, 1000));
 
-      const outputResult = await run(`cat /tmp/warp_output.txt`);
-      finalOutput = (outputResult.stdout + outputResult.stderr).trim();
+      const result = await run(`cat /tmp/warp_output.txt`);
+
+      finalOutput = (result.stdout + result.stderr).trim();
 
       if (finalOutput.length > 0) {
         break;
       }
+
     }
 
-    /* DEBUG (puedes quitarlo luego) */
-    console.log("----- DEBUG SALIDA -----");
+    /* Debug útil */
+    console.log("----- WARP OUTPUT -----");
     console.log(finalOutput);
-    console.log("------------------------");
+    console.log("-----------------------");
 
     if (!finalOutput) {
-      return `✔ Acción completada correctamente: ${message}`;
+      return `Acción ejecutada: ${message}`;
     }
 
     return finalOutput;
 
   } catch (error) {
+
     return `Error interactuando con Warp:\n${error}`;
+
   }
 }
 
-/* -------------------------------------------------- */
-/* ENDPOINT CHAT                                     */
-/* -------------------------------------------------- */
+/* ---------------------------------- */
+/* Endpoint chat                      */
+/* ---------------------------------- */
 
 app.post("/chat", async (req, res) => {
+
   try {
+
     const { message } = req.body;
 
     if (!message) {
+
       return res.status(400).json({
         success: false,
         error: "Mensaje vacío"
       });
+
     }
 
     const result = await sendToWarp(message);
@@ -133,15 +134,20 @@ app.post("/chat", async (req, res) => {
     });
 
   } catch (error) {
+
     res.status(500).json({
       success: false,
       error: error.toString()
     });
+
   }
+
 });
 
-/* -------------------------------------------------- */
+/* ---------------------------------- */
 
 app.listen(PORT, () => {
+
   console.log(`Servidor Warp UI activo en puerto ${PORT}`);
+
 });
