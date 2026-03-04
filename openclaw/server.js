@@ -46,22 +46,40 @@ async function sendToWarp(message) {
 
     /* Prompt SIMPLE */
 const safeMessage = `
-Devuelve SOLO un comando bash.
+Convierte esta petición en un comando bash ejecutable.
 
-Formato obligatorio:
-<comando> | tee /tmp/warp_output.txt
+REGLAS:
+- Devuelve SOLO el comando
+- Sin explicaciones
+- Sin comentarios
+- Una sola linea
 
-No escribas explicaciones.
-No escribas texto.
-Solo el comando.
+El comando debe guardar la salida usando:
+| tee /tmp/warp_output.txt
 
-Petición: ${message}
+Peticion: ${message}
 `.trim().replace(/"/g, '\\"');
-    /* Escribir en Warp */
-    await run(`xdotool type --delay 20 "${safeMessage}"`);
-    await new Promise(r => setTimeout(r, 300));
-    await run(`xdotool key Return`);
 
+/* Abrir Warp AI */
+await run(`xdotool key ctrl+grave`);
+await new Promise(r => setTimeout(r, 600));
+
+/* Escribir prompt */
+await run(`xdotool type --delay 20 "${safeMessage}"`);
+await new Promise(r => setTimeout(r, 300));
+
+/* Pedir sugerencia */
+await run(`xdotool key Return`);
+
+/* Esperar a que Warp genere la sugerencia */
+await new Promise(r => setTimeout(r, 2000));
+
+/* Seleccionar la sugerencia */
+await run(`xdotool key Tab`);
+await new Promise(r => setTimeout(r, 200));
+
+/* Ejecutar comando sugerido */
+await run(`xdotool key Return`);
     /* Esperar a que el archivo tenga contenido real */
     let finalOutput = "";
 
