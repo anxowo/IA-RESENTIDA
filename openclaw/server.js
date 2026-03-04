@@ -46,18 +46,10 @@ async function sendToWarp(message) {
 
     /* Prompt SIMPLE */
 const safeMessage = `
-Convierte la petición en un comando Linux.
-
-Reglas:
-- Devuelve SOLO el comando.
-- El comando debe ejecutarse directamente en bash.
-- Redirige la salida con: | tee /tmp/warp_output.txt
-- Si el comando normalmente no produce salida (ej restart, start, stop),
-  añade después: && echo "✔ Acción completada correctamente" | tee -a /tmp/warp_output.txt
-
-Petición: ${message}
+# Devuelve SOLO el comando final
+# Guarda la salida en /tmp/warp_output.txt usando tee
+${message}
 `.trim().replace(/"/g, '\\"');
-
     /* Escribir en Warp */
     await run(`xdotool type --delay 20 "${safeMessage}"`);
     await new Promise(r => setTimeout(r, 300));
