@@ -6,3 +6,4 @@
 | 2026-02-18 12:03:39 | **Expandido disco principal a capacidad maxima** | ✅ Completado |
 | 2026-02-19 09:27:09 | **Reiniciando servicio ollama** | ✅ Completado |
 | 2026-03-05 09:12:36 | **cuantos servicios tiene el servidor activo** | ✅ Completado |
+| 2026-03-05 09:14:32 | **Reinicia el servicio ssh** | ✅ Completado |
