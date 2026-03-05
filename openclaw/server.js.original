@@ -1,6 +1,5 @@
 const express = require("express");
-// Importamos también execFile por seguridad
-const { exec, execFile } = require("child_process");
+const { exec } = require("child_process");
 const path = require("path");
 
 const app = express();
@@ -103,33 +102,6 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    /* -------------------------------------------------- */
-    /* EJECUCIÓN DEL SCRIPT evento_ia.sh                 */
-    /* -------------------------------------------------- */
-    // Usamos execFile para que 'message' se trate como un argumento de texto plano
-    // y no como comandos interpretables por la shell.
-    try {
-      await new Promise((resolve) => {
-        execFile(
-          "/opt/IA-RESENTIDA/scripts/evento_ia.sh",
-          [message],
-          (error, stdout, stderr) => {
-            if (error) {
-              console.error("Error al ejecutar evento_ia.sh:", stderr || error.message);
-            } else {
-              console.log("evento_ia.sh ejecutado correctamente. Salida:", stdout);
-            }
-            // Resolvemos la promesa falle o no, para que la petición
-            // principal a Warp no se quede bloqueada por el script.
-            resolve();
-          }
-        );
-      });
-    } catch (scriptError) {
-      console.error("Excepción en la ejecución del script:", scriptError);
-    }
-    /* -------------------------------------------------- */
-
     const result = await sendToWarp(message);
 
     res.json({
@@ -144,6 +116,7 @@ app.post("/chat", async (req, res) => {
     });
   }
 });
+
 /* -------------------------------------------------- */
 
 app.listen(PORT, () => {
