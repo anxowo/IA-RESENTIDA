@@ -38,7 +38,7 @@ function isAllowedCommand(cmd) {
 }
 
 /* =========================
-   OLLAMA
+   OLLAMA (ROBUSTO)
 ========================= */
 async function askOllama(message) {
   const prompt = `
@@ -61,7 +61,7 @@ Usuario: ${message}
       model: "phi3:mini",
       prompt,
       stream: false,
-      timeout: 60000, // ⏱️ importante
+      timeout: 60000,
       options: {
         num_predict: 50,
         temperature: 0.2
@@ -71,16 +71,27 @@ Usuario: ${message}
     let text = response.data.response?.trim();
 
     if (!text) {
-      return { action: "chat", response: "No hay respuesta del modelo" };
+      return {
+        action: "chat",
+        response: "No hay respuesta del modelo"
+      };
     }
 
     const match = text.match(/\{[\s\S]*\}/);
 
     if (match) {
-      return JSON.parse(match[0]);
+      try {
+        return JSON.parse(match[0]);
+      } catch (e) {
+        // 🔥 fallback si JSON falla
+        return {
+          action: "chat",
+          response: text
+        };
+      }
     }
 
-    // 👉 fallback inteligente
+    // 🔥 fallback final
     return {
       action: "chat",
       response: text
@@ -95,12 +106,14 @@ Usuario: ${message}
     };
   }
 }
+
 /* =========================
    ENDPOINT CHAT
 ========================= */
 app.post("/chat", async (req, res) => {
   try {
     const { message } = req.body;
+
     if (!message) {
       return res.status(400).json({ error: "Mensaje vacío" });
     }
@@ -108,8 +121,15 @@ app.post("/chat", async (req, res) => {
     const msg = message.toLowerCase();
 
     /* =========================
-       RESPUESTAS RÁPIDAS (SIN IA)
+       RESPUESTAS RÁPIDAS
     ========================= */
+
+    if (msg.includes("hola") || msg.includes("que tal")) {
+      return res.json({
+        role: "assistant",
+        content: "Todo bien 👌 ¿en qué te ayudo?"
+      });
+    }
 
     if (msg.includes("memoria")) {
       const result = await run("free -m");
@@ -158,6 +178,7 @@ app.post("/chat", async (req, res) => {
       }
 
       const result = await run(`systemctl restart ${ai.service}`);
+
       return res.json({
         role: "assistant",
         content: `Servicio ${ai.service} reiniciado\n${result}`
@@ -173,6 +194,7 @@ app.post("/chat", async (req, res) => {
       }
 
       const result = await run(ai.command);
+
       return res.json({
         role: "assistant",
         content: result
@@ -185,7 +207,7 @@ app.post("/chat", async (req, res) => {
 
     return res.json({
       role: "assistant",
-      content: ai.response
+      content: ai.response || "Sin respuesta"
     });
 
   } catch (error) {
@@ -199,5 +221,5 @@ app.post("/chat", async (req, res) => {
    START
 ========================= */
 app.listen(PORT, () => {
-  console.log(`🚀 IA con chat en http://localhost:${PORT}`);
+  console.log(`🚀 IA funcionando en http://localhost:${PORT}`);
 });
