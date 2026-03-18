@@ -68,6 +68,11 @@
 </div>
 
 <script>
+// He añadido esta parte ~ Pablo (fede)
+let historial = [];
+let historialIndex = -1;
+/////////////////////////
+
 async function send() {
   const input = document.getElementById("input");
   const text = input.value.trim();
@@ -75,6 +80,11 @@ async function send() {
 
   addMessage(text, "user");
   input.value = "";
+
+  // He añadido esta parte  ~ Pablo (fede)
+  historial.push(text);
+  historialIndex = historial.length;
+  //////////////////////////////////
 
   // mensaje temporal
   const loading = addMessage("...", "bot");
@@ -113,15 +123,32 @@ function addMessage(text, type) {
   return div;
 }
 
- // He añadido esta parte para que no haya que pulsar el botón que es un coñazo ~ Pablo
+ // He añadido esta parte para que no haya que pulsar el botón que es un coñazo ~ Pablo (fede)
+ // Vale me ha dado por que guarde las preguntas que le has hecho para que no tengas que volverlas a escribir
   const input = document.getElementById("input");
 
 input.addEventListener("keydown", function(event) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    send();
-  }
+    if (event.key === "Enter") {
+        event.preventDefault();
+        send();
+    }
+    else if (event.key === "ArrowUp") {
+        // flecha arriba
+        if (historial.length === 0) return;
+        if (historialIndex > 0) historialIndex--;
+        input.value = historial[historialIndex] || "";
+        event.preventDefault();
+    }
+    else if (event.key === "ArrowDown") {
+        // flecha abajo
+        if (historial.length === 0) return;
+        if (historialIndex < historial.length - 1) historialIndex++;
+        else historialIndex = historial.length; // fuera del historial
+        input.value = historial[historialIndex] || "";
+        event.preventDefault();
+    }
 });
+
 </script>
 
 </body>
