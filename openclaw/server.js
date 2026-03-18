@@ -1,11 +1,13 @@
 const express = require("express");
 const axios = require("axios");
 const { exec } = require("child_process");
+const path = require("path");
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
 /* =========================
    EJECUTOR
@@ -36,14 +38,14 @@ function isAllowedCommand(cmd) {
 }
 
 /* =========================
-   OLLAMA (RÁPIDO)
+   OLLAMA
 ========================= */
 async function askOllama(message) {
   const prompt = `
-Responde SOLO JSON:
+Responde SOLO JSON MUY CORTO.
 
 chat:
-{"action":"chat","response":"texto"}
+{"action":"chat","response":"max 1 frase"}
 
 restart:
 {"action":"restart_service","service":"ssh"}
@@ -60,7 +62,8 @@ Usuario: ${message}
       prompt,
       stream: false,
       options: {
-        num_predict: 100
+        num_predict: 50,
+        temperature: 0.2
       }
     });
 
@@ -77,7 +80,7 @@ Usuario: ${message}
 }
 
 /* =========================
-   ENDPOINT
+   ENDPOINT CHAT
 ========================= */
 app.post("/chat", async (req, res) => {
   try {
@@ -110,6 +113,14 @@ app.post("/chat", async (req, res) => {
     if (msg.includes("usuario") || msg.includes("quien soy")) {
       const result = await run("whoami");
       return res.json({ role: "assistant", content: result });
+    }
+
+    if (msg.includes("reinicia ssh")) {
+      const result = await run("systemctl restart ssh");
+      return res.json({
+        role: "assistant",
+        content: "SSH reiniciado\n" + result
+      });
     }
 
     /* =========================
@@ -172,5 +183,5 @@ app.post("/chat", async (req, res) => {
    START
 ========================= */
 app.listen(PORT, () => {
-  console.log(`🚀 IA rápida en http://localhost:${PORT}`);
+  console.log(`🚀 IA con chat en http://localhost:${PORT}`);
 });
