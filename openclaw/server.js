@@ -45,8 +45,12 @@ function isSimple(msg) {
    OLLAMA STREAM
 ========================= */
 async function askOllamaStream(message, res, model) {
-  const prompt = `Responde claro y corto:\n${message}`;
+const prompt = `
+Responde MUY corto (máx 2 líneas).
+Sé directo y sin explicaciones largas.
 
+Usuario: ${message}
+`;
   try {
     const response = await axios.post(
       "http://localhost:11434/api/generate",
