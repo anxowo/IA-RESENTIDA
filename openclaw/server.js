@@ -1,96 +1,105 @@
 const express = require("express");
-// Importamos también execFile por seguridad
-const { exec, execFile } = require("child_process");
-const path = require("path");
+const axios = require("axios");
+const { exec } = require("child_process");
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
 
-/* -------------------------------------------------- */
-/* RUN helper                                        */
-/* -------------------------------------------------- */
+/* =========================
+   EJECUTOR SEGURO
+========================= */
 
 function run(command) {
   return new Promise((resolve, reject) => {
-    exec(
-      command,
-      { maxBuffer: 1024 * 1024 * 20 }, // 20MB por si systemctl devuelve mucho
-      (error, stdout, stderr) => {
-        if (error && !stdout) {
-          return reject(stderr || error.message);
-        }
-        resolve({ stdout, stderr });
+    exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
+      if (error) {
+        return resolve(stderr || error.message);
       }
-    );
+      resolve(stdout || stderr);
+    });
   });
 }
 
-/* -------------------------------------------------- */
-/* FUNCIÓN PRINCIPAL                                 */
-/* -------------------------------------------------- */
+/* =========================
+   CONTROL DE SEGURIDAD
+========================= */
 
-async function sendToWarp(message) {
+// Servicios permitidos
+const allowedServices = ["ssh", "nginx", "apache2"];
+
+// Comandos permitidos (lectura)
+const allowedCommands = [
+  "uptime",
+  "df -h",
+  "free -m",
+  "whoami"
+];
+
+function isAllowedCommand(cmd) {
+  return allowedCommands.includes(cmd);
+}
+
+/* =========================
+   OLLAMA
+========================= */
+
+async function askOllama(message, systemInfo = "") {
+  const prompt = `
+Eres un asistente de sistema Linux.
+
+Puedes responder de 3 formas en JSON:
+
+1. Chat normal:
+{
+  "action": "chat",
+  "response": "texto"
+}
+
+2. Reiniciar servicio:
+{
+  "action": "restart_service",
+  "service": "ssh"
+}
+
+3. Ejecutar comando permitido:
+{
+  "action": "run_command",
+  "command": "uptime"
+}
+
+REGLAS:
+- SOLO JSON
+- NO inventes comandos peligrosos
+- NO uses rm, dd, mkfs, etc
+- Si no es acción de sistema → usa "chat"
+
+Sistema:
+${systemInfo}
+
+Usuario: ${message}
+`;
+
+  const response = await axios.post("http://localhost:11434/api/generate", {
+    model: "llama3",
+    prompt,
+    stream: false
+  });
+
   try {
-    /* Traer Warp al frente */
-    try {
-      await run(`wmctrl -x -a warp.Warp`);
-      await new Promise(r => setTimeout(r, 800));
-    } catch (e) {}
-
-    /* Limpiar archivo */
-    await run(`rm -f /tmp/warp_output.txt`);
-    await run(`touch /tmp/warp_output.txt`);
-    await run(`chmod 666 /tmp/warp_output.txt`);
-
-    /* Prompt SIMPLE */
-    const safeMessage = `
-Genera un comando Linux válido.
-Ejecuta el comando.
-Redirige la salida a /tmp/warp_output.txt 2>&1
-Petición: ${message}
-`.trim().replace(/"/g, '\\"');
-
-    /* Escribir en Warp */
-    await run(`xdotool type --delay 20 "${safeMessage}"`);
-    await new Promise(r => setTimeout(r, 300));
-    await run(`xdotool key Return`);
-
-    /* Esperar a que el archivo tenga contenido real */
-    let finalOutput = "";
-
-    for (let i = 0; i < 60; i++) {
-      await new Promise(r => setTimeout(r, 1000));
-
-      const outputResult = await run(`cat /tmp/warp_output.txt`);
-      finalOutput = (outputResult.stdout + outputResult.stderr).trim();
-
-      if (finalOutput.length > 0) {
-        break;
-      }
-    }
-
-    /* DEBUG (puedes quitarlo luego) */
-    console.log("----- DEBUG SALIDA -----");
-    console.log(finalOutput);
-    console.log("------------------------");
-
-    if (!finalOutput) {
-      return `✔ Acción completada correctamente: ${message}`;
-    }
-
-    return finalOutput;
-
-  } catch (error) {
-    return `Error interactuando con Warp:\n${error}`;
+    return JSON.parse(response.data.response);
+  } catch (e) {
+    return {
+      action: "chat",
+      response: "Error interpretando respuesta del modelo"
+    };
   }
 }
 
-/* -------------------------------------------------- */
-/* ENDPOINT CHAT                                     */
-/* -------------------------------------------------- */
+/* =========================
+   ENDPOINT
+========================= */
 
 app.post("/chat", async (req, res) => {
   try {
@@ -103,38 +112,51 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    /* -------------------------------------------------- */
-    /* EJECUCIÓN DEL SCRIPT evento_ia.sh                 */
-    /* -------------------------------------------------- */
-    // Usamos execFile para que 'message' se trate como un argumento de texto plano
-    // y no como comandos interpretables por la shell.
-    try {
-      await new Promise((resolve) => {
-        execFile(
-          "/opt/IA-RESENTIDA/scripts/evento_ia.sh",
-          [message],
-          (error, stdout, stderr) => {
-            if (error) {
-              console.error("Error al ejecutar evento_ia.sh:", stderr || error.message);
-            } else {
-              console.log("evento_ia.sh ejecutado correctamente. Salida:", stdout);
-            }
-            // Resolvemos la promesa falle o no, para que la petición
-            // principal a Warp no se quede bloqueada por el script.
-            resolve();
-          }
-        );
+    // contexto del sistema
+    const systemInfo = await run("uptime && free -m && df -h");
+
+    const ai = await askOllama(message, systemInfo);
+
+    /* =========================
+       ACCIONES
+    ========================= */
+
+    if (ai.action === "restart_service") {
+      if (!allowedServices.includes(ai.service)) {
+        return res.json({
+          role: "assistant",
+          content: `Servicio no permitido: ${ai.service}`
+        });
+      }
+
+      const result = await run(`systemctl restart ${ai.service}`);
+
+      return res.json({
+        role: "assistant",
+        content: `Servicio ${ai.service} reiniciado.\n${result}`
       });
-    } catch (scriptError) {
-      console.error("Excepción en la ejecución del script:", scriptError);
     }
-    /* -------------------------------------------------- */
 
-    const result = await sendToWarp(message);
+    if (ai.action === "run_command") {
+      if (!isAllowedCommand(ai.command)) {
+        return res.json({
+          role: "assistant",
+          content: "Comando no permitido"
+        });
+      }
 
-    res.json({
+      const result = await run(ai.command);
+
+      return res.json({
+        role: "assistant",
+        content: result
+      });
+    }
+
+    // CHAT NORMAL
+    return res.json({
       role: "assistant",
-      content: result
+      content: ai.response
     });
 
   } catch (error) {
@@ -144,8 +166,11 @@ app.post("/chat", async (req, res) => {
     });
   }
 });
-/* -------------------------------------------------- */
+
+/* =========================
+   START
+========================= */
 
 app.listen(PORT, () => {
-  console.log(`Servidor Warp UI activo en puerto ${PORT}`);
+  console.log(`Servidor IA activo en puerto ${PORT}`);
 });
