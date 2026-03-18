@@ -13,9 +13,7 @@ app.use(express.json());
 function run(command) {
   return new Promise((resolve) => {
     exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
-      if (error) {
-        return resolve(stderr || error.message);
-      }
+      if (error) return resolve(stderr || error.message);
       resolve(stdout || stderr);
     });
   });
@@ -24,8 +22,7 @@ function run(command) {
 /* =========================
    SEGURIDAD
 ========================= */
-
-const allowedServices = ["ssh", "nginx", "apache2"];
+const allowedServices = ["ssh", "sshd", "nginx", "apache2"];
 
 const allowedCommands = [
   "uptime",
@@ -39,97 +36,87 @@ function isAllowedCommand(cmd) {
 }
 
 /* =========================
-   OLLAMA (ROBUSTO)
+   OLLAMA (RÁPIDO)
 ========================= */
-
-async function askOllama(message, systemInfo = "") {
+async function askOllama(message) {
   const prompt = `
-Eres un asistente de sistema Linux.
+Responde SOLO JSON:
 
-IMPORTANTE:
-- Responde SOLO JSON válido
-- SIN texto fuera del JSON
-- SIN explicaciones
+chat:
+{"action":"chat","response":"texto"}
 
-Formatos:
+restart:
+{"action":"restart_service","service":"ssh"}
 
-1. Chat:
-{
-  "action": "chat",
-  "response": "texto"
-}
-
-2. Reiniciar servicio:
-{
-  "action": "restart_service",
-  "service": "ssh"
-}
-
-3. Ejecutar comando:
-{
-  "action": "run_command",
-  "command": "uptime"
-}
-
-REGLAS:
-- NO comandos peligrosos
-- NO rm, dd, mkfs, etc
-- Si no es acción → chat
-
-Sistema:
-${systemInfo}
+cmd:
+{"action":"run_command","command":"uptime"}
 
 Usuario: ${message}
 `;
 
   try {
     const response = await axios.post("http://localhost:11434/api/generate", {
-      model: "phi3",
+      model: "phi3:mini",
       prompt,
-      stream: false
+      stream: false,
+      options: {
+        num_predict: 100
+      }
     });
 
     let text = response.data.response.trim();
 
-    // 🔥 Extraer JSON aunque venga con basura
     const match = text.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
 
-    if (match) {
-      return JSON.parse(match[0]);
-    }
+    return { action: "chat", response: text };
 
-    // fallback seguro
-    return {
-      action: "chat",
-      response: text
-    };
-
-  } catch (error) {
-    return {
-      action: "chat",
-      response: "Error al procesar la respuesta del modelo"
-    };
+  } catch (e) {
+    return { action: "chat", response: "Error IA" };
   }
 }
 
 /* =========================
    ENDPOINT
 ========================= */
-
 app.post("/chat", async (req, res) => {
   try {
     const { message } = req.body;
-
     if (!message) {
-      return res.status(400).json({
-        error: "Mensaje vacío"
-      });
+      return res.status(400).json({ error: "Mensaje vacío" });
     }
 
-    // contexto sistema
-    const systemInfo = await run("uptime && free -m && df -h");
+    const msg = message.toLowerCase();
 
-    const ai = await askOllama(message, systemInfo);
+    /* =========================
+       RESPUESTAS RÁPIDAS (SIN IA)
+    ========================= */
+
+    if (msg.includes("memoria")) {
+      const result = await run("free -m");
+      return res.json({ role: "assistant", content: result });
+    }
+
+    if (msg.includes("disco")) {
+      const result = await run("df -h");
+      return res.json({ role: "assistant", content: result });
+    }
+
+    if (msg.includes("uptime") || msg.includes("tiempo")) {
+      const result = await run("uptime");
+      return res.json({ role: "assistant", content: result });
+    }
+
+    if (msg.includes("usuario") || msg.includes("quien soy")) {
+      const result = await run("whoami");
+      return res.json({ role: "assistant", content: result });
+    }
+
+    /* =========================
+       IA
+    ========================= */
+
+    const ai = await askOllama(message);
 
     /* =========================
        ACCIONES
@@ -144,10 +131,9 @@ app.post("/chat", async (req, res) => {
       }
 
       const result = await run(`systemctl restart ${ai.service}`);
-
       return res.json({
         role: "assistant",
-        content: `Servicio ${ai.service} reiniciado.\n${result}`
+        content: `Servicio ${ai.service} reiniciado\n${result}`
       });
     }
 
@@ -160,7 +146,6 @@ app.post("/chat", async (req, res) => {
       }
 
       const result = await run(ai.command);
-
       return res.json({
         role: "assistant",
         content: result
@@ -186,7 +171,6 @@ app.post("/chat", async (req, res) => {
 /* =========================
    START
 ========================= */
-
 app.listen(PORT, () => {
-  console.log(`🚀 IA corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 IA rápida en http://localhost:${PORT}`);
 });
