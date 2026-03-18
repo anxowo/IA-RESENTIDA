@@ -25,7 +25,7 @@ function run(command) {
    SEGURIDAD
 ========================= */
 function isSafeCommand(cmd) {
-  const dangerous = ["rm", "shutdown", "reboot", "mkfs", "dd"];
+  const dangerous = ["rm", "shutdown", "reboot", "mkfs", "dd", "curl", "wget"];
   return !dangerous.some(d => cmd.includes(d));
 }
 
@@ -44,55 +44,46 @@ function shouldExecute(message, action) {
 }
 
 /* =========================
-   OLLAMA (PROMPT BUENO)
+   OLLAMA (MEJORADO)
 ========================= */
 async function askOllama(message) {
-const prompt = `
+  const prompt = `
 Eres un asistente inteligente.
 
 Tienes dos modos:
 
 1. CHAT NORMAL:
 - Responde de forma natural
-- Preguntas generales → NO uses comandos
+- NO inventes datos
+- Si no sabes algo → dilo claramente
 
 2. SISTEMA LINUX:
 - SOLO si la pregunta requiere el sistema
 - entonces añade JSON al FINAL
 
-Formato acciones:
+Formato:
 
 {"action":"run_command","command":"comando"}
 {"action":"restart_service","service":"ssh"}
 
 Reglas IMPORTANTES:
 
+- NO inventes datos
+- Si no estás seguro → dilo
 - NO uses comandos para preguntas generales
-- NO inventes comandos innecesarios
-- NO uses curl ni web
-- SOLO usa comandos si es algo del sistema (hora, memoria, procesos, servicios)
-
-Ejemplos:
-
-Usuario: que hora es  
-→ usar comando date
-
-Usuario: cuantos procesos hay  
-→ usar ps
-
-Usuario: a cuantos grados hierve el agua  
-→ RESPUESTA NORMAL (sin comandos)
+- SOLO usa comandos para cosas del sistema
 
 Usuario: ${message}
 `;
+
   try {
     const response = await axios.post("http://localhost:11434/api/generate", {
-      model: "phi3:mini",
+      model: "mistral",
       prompt,
       stream: false,
       options: {
-        num_predict: 100,
-        temperature: 0
+        num_predict: 120,
+        temperature: 0.3
       },
       timeout: 60000
     });
@@ -101,14 +92,6 @@ Usuario: ${message}
 
     if (!text) {
       return { text: "No hay respuesta del modelo" };
-    }
-
-    // 🔥 limpiar respuestas tontas del modelo
-    if (
-      text.includes("no tengo la capacidad") ||
-      text.includes("no puedo ejecutar")
-    ) {
-      text = "Voy a comprobarlo...";
     }
 
     return { text };
@@ -136,7 +119,6 @@ app.post("/chat", async (req, res) => {
     const ai = await askOllama(message);
     const text = ai.text;
 
-    // 🔍 buscar JSON dentro del texto
     const match = text.match(/\{[\s\S]*?\}/);
 
     if (match) {
@@ -144,9 +126,7 @@ app.post("/chat", async (req, res) => {
         const action = JSON.parse(match[0]);
         const cleanText = text.replace(match[0], "").trim();
 
-        // =========================
         // RUN COMMAND
-        // =========================
         if (action.action === "run_command") {
 
           if (!shouldExecute(message, action)) {
@@ -159,7 +139,14 @@ app.post("/chat", async (req, res) => {
           if (!isSafeCommand(action.command)) {
             return res.json({
               role: "assistant",
-              content: "⛔ Comando bloqueado por seguridad"
+              content: "⛔ Comando bloqueado"
+            });
+          }
+
+          if (action.command.length > 100) {
+            return res.json({
+              role: "assistant",
+              content: "Comando demasiado largo"
             });
           }
 
@@ -171,9 +158,7 @@ app.post("/chat", async (req, res) => {
           });
         }
 
-        // =========================
         // RESTART SERVICE
-        // =========================
         if (action.action === "restart_service") {
 
           if (!shouldExecute(message, action)) {
@@ -192,11 +177,11 @@ app.post("/chat", async (req, res) => {
         }
 
       } catch (e) {
-        // JSON roto → seguimos normal
+        // JSON roto → ignoramos
       }
     }
 
-    // 💬 respuesta normal
+    // RESPUESTA NORMAL
     return res.json({
       role: "assistant",
       content: text
