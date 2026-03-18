@@ -8,7 +8,7 @@ const PORT = 3000;
 app.use(express.json());
 
 /* =========================
-   EJECUTAR COMANDOS
+   EJECUTOR
 ========================= */
 function run(command) {
   return new Promise((resolve) => {
@@ -39,14 +39,19 @@ function isAllowedCommand(cmd) {
 }
 
 /* =========================
-   OLLAMA (phi3)
+   OLLAMA (ROBUSTO)
 ========================= */
 
 async function askOllama(message, systemInfo = "") {
   const prompt = `
 Eres un asistente de sistema Linux.
 
-Responde SOLO en JSON con uno de estos formatos:
+IMPORTANTE:
+- Responde SOLO JSON válido
+- SIN texto fuera del JSON
+- SIN explicaciones
+
+Formatos:
 
 1. Chat:
 {
@@ -60,14 +65,13 @@ Responde SOLO en JSON con uno de estos formatos:
   "service": "ssh"
 }
 
-3. Ejecutar comando permitido:
+3. Ejecutar comando:
 {
   "action": "run_command",
   "command": "uptime"
 }
 
 REGLAS:
-- SOLO JSON
 - NO comandos peligrosos
 - NO rm, dd, mkfs, etc
 - Si no es acción → chat
@@ -85,8 +89,22 @@ Usuario: ${message}
       stream: false
     });
 
-    return JSON.parse(response.data.response);
-  } catch (e) {
+    let text = response.data.response.trim();
+
+    // 🔥 Extraer JSON aunque venga con basura
+    const match = text.match(/\{[\s\S]*\}/);
+
+    if (match) {
+      return JSON.parse(match[0]);
+    }
+
+    // fallback seguro
+    return {
+      action: "chat",
+      response: text
+    };
+
+  } catch (error) {
     return {
       action: "chat",
       response: "Error al procesar la respuesta del modelo"
@@ -108,7 +126,7 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // contexto del sistema
+    // contexto sistema
     const systemInfo = await run("uptime && free -m && df -h");
 
     const ai = await askOllama(message, systemInfo);
