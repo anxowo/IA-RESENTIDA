@@ -29,25 +29,48 @@ function isSafeCommand(cmd) {
   return !dangerous.some(d => cmd.includes(d));
 }
 
+function shouldExecute(message, action) {
+  const msg = message.toLowerCase();
+
+  if (action.action === "restart_service") {
+    return msg.includes("reinicia") || msg.includes("restart");
+  }
+
+  if (action.action === "run_command") {
+    return true;
+  }
+
+  return false;
+}
+
 /* =========================
-   OLLAMA (MODO HÍBRIDO)
+   OLLAMA (PROMPT BUENO)
 ========================= */
 async function askOllama(message) {
   const prompt = `
-Eres un asistente Linux útil.
+Eres un asistente que CONTROLA un sistema Linux.
+
+IMPORTANTE:
+- SÍ puedes ejecutar comandos
+- NO digas que no puedes
+- NO hables de limitaciones
+- Actúa como un agente real
 
 Puedes:
-- responder de forma natural
-- explicar cosas
+- responder normal
+- ejecutar acciones
 
-PERO si quieres ejecutar algo, incluye un JSON al FINAL.
-
-Formato:
+Si ejecutas algo, añade JSON al FINAL:
 
 {"action":"run_command","command":"comando"}
 {"action":"restart_service","service":"ssh"}
 
-Si NO hay acción → responde normal.
+Ejemplo:
+
+Usuario: que hora es
+Respuesta:
+Voy a comprobar la hora.
+{"action":"run_command","command":"date"}
 
 Usuario: ${message}
 `;
@@ -68,6 +91,14 @@ Usuario: ${message}
 
     if (!text) {
       return { text: "No hay respuesta del modelo" };
+    }
+
+    // 🔥 limpiar respuestas tontas del modelo
+    if (
+      text.includes("no tengo la capacidad") ||
+      text.includes("no puedo ejecutar")
+    ) {
+      text = "Voy a comprobarlo...";
     }
 
     return { text };
@@ -101,14 +132,19 @@ app.post("/chat", async (req, res) => {
     if (match) {
       try {
         const action = JSON.parse(match[0]);
-
-        // limpiar texto visible
         const cleanText = text.replace(match[0], "").trim();
 
         // =========================
         // RUN COMMAND
         // =========================
         if (action.action === "run_command") {
+
+          if (!shouldExecute(message, action)) {
+            return res.json({
+              role: "assistant",
+              content: cleanText || "No es necesario ejecutar eso"
+            });
+          }
 
           if (!isSafeCommand(action.command)) {
             return res.json({
@@ -130,6 +166,13 @@ app.post("/chat", async (req, res) => {
         // =========================
         if (action.action === "restart_service") {
 
+          if (!shouldExecute(message, action)) {
+            return res.json({
+              role: "assistant",
+              content: cleanText || "No es necesario reiniciar eso"
+            });
+          }
+
           const result = await run(`systemctl restart ${action.service}`);
 
           return res.json({
@@ -139,7 +182,7 @@ app.post("/chat", async (req, res) => {
         }
 
       } catch (e) {
-        // si JSON rompe → seguimos como chat normal
+        // JSON roto → seguimos normal
       }
     }
 
