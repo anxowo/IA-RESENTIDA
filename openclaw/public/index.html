@@ -100,11 +100,22 @@ historialIndex = historial.length;
       body: JSON.stringify({ message: text })
     });
 
-    const data = await res.json();
+// STREAMING
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
 
-    loading.remove();
-    addMessage(data.content || "Sin respuesta", "bot");
+let textResponse = "";
 
+// reutilizamos el div de loading
+loading.innerText = "";
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  textResponse += decoder.decode(value);
+  loading.innerText = textResponse;
+}
   } catch (err) {
     console.error(err);
     loading.remove();
