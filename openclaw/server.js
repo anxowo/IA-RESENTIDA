@@ -41,17 +41,29 @@ function isAllowedCommand(cmd) {
    OLLAMA (ROBUSTO)
 ========================= */
 async function askOllama(message) {
-  const prompt = `
-Responde SOLO JSON MUY CORTO.
+const prompt = `
+Eres un asistente de sistema Linux.
 
-chat:
-{"action":"chat","response":"max 1 frase"}
+RESPONDE SIEMPRE en JSON válido SIN texto extra.
 
-restart:
+Reglas estrictas:
+- NO expliques nada fuera del JSON
+- NO uses markdown
+- NO pongas texto antes o después
+- SOLO devuelve JSON válido
+
+Formatos permitidos:
+
+CHAT:
+{"action":"chat","response":"texto"}
+
+REINICIAR:
 {"action":"restart_service","service":"ssh"}
 
-cmd:
+COMANDO:
 {"action":"run_command","command":"uptime"}
+
+Si la pregunta NO es de sistema → usa "chat"
 
 Usuario: ${message}
 `;
