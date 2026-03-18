@@ -82,8 +82,10 @@ async function send() {
   input.value = "";
 
   // He añadido esta parte ~ Pablo (fede)
-  historial.push(text);
-  historialIndex = historial.length;
+if (historial[historial.length - 1] !== text) {
+    historial.push(text);
+}
+historialIndex = historial.length;
   //////////////////////////////////
 
   // mensaje temporal
