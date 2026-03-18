@@ -61,24 +61,40 @@ Usuario: ${message}
       model: "phi3:mini",
       prompt,
       stream: false,
+      timeout: 60000, // ⏱️ importante
       options: {
         num_predict: 50,
         temperature: 0.2
       }
     });
 
-    let text = response.data.response.trim();
+    let text = response.data.response?.trim();
+
+    if (!text) {
+      return { action: "chat", response: "No hay respuesta del modelo" };
+    }
 
     const match = text.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
 
-    return { action: "chat", response: text };
+    if (match) {
+      return JSON.parse(match[0]);
+    }
+
+    // 👉 fallback inteligente
+    return {
+      action: "chat",
+      response: text
+    };
 
   } catch (e) {
-    return { action: "chat", response: "Error IA" };
+    console.error("ERROR OLLAMA:", e.message);
+
+    return {
+      action: "chat",
+      response: "La IA está ocupada, intenta otra vez"
+    };
   }
 }
-
 /* =========================
    ENDPOINT CHAT
 ========================= */
