@@ -8,11 +8,10 @@ const PORT = 3000;
 app.use(express.json());
 
 /* =========================
-   EJECUTOR SEGURO
+   EJECUTAR COMANDOS
 ========================= */
-
 function run(command) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
       if (error) {
         return resolve(stderr || error.message);
@@ -23,13 +22,11 @@ function run(command) {
 }
 
 /* =========================
-   CONTROL DE SEGURIDAD
+   SEGURIDAD
 ========================= */
 
-// Servicios permitidos
 const allowedServices = ["ssh", "nginx", "apache2"];
 
-// Comandos permitidos (lectura)
 const allowedCommands = [
   "uptime",
   "df -h",
@@ -42,16 +39,16 @@ function isAllowedCommand(cmd) {
 }
 
 /* =========================
-   OLLAMA
+   OLLAMA (phi3)
 ========================= */
 
 async function askOllama(message, systemInfo = "") {
   const prompt = `
 Eres un asistente de sistema Linux.
 
-Puedes responder de 3 formas en JSON:
+Responde SOLO en JSON con uno de estos formatos:
 
-1. Chat normal:
+1. Chat:
 {
   "action": "chat",
   "response": "texto"
@@ -71,9 +68,9 @@ Puedes responder de 3 formas en JSON:
 
 REGLAS:
 - SOLO JSON
-- NO inventes comandos peligrosos
-- NO uses rm, dd, mkfs, etc
-- Si no es acción de sistema → usa "chat"
+- NO comandos peligrosos
+- NO rm, dd, mkfs, etc
+- Si no es acción → chat
 
 Sistema:
 ${systemInfo}
@@ -81,18 +78,18 @@ ${systemInfo}
 Usuario: ${message}
 `;
 
-  const response = await axios.post("http://localhost:11434/api/generate", {
-    model: "llama3",
-    prompt,
-    stream: false
-  });
-
   try {
+    const response = await axios.post("http://localhost:11434/api/generate", {
+      model: "phi3",
+      prompt,
+      stream: false
+    });
+
     return JSON.parse(response.data.response);
   } catch (e) {
     return {
       action: "chat",
-      response: "Error interpretando respuesta del modelo"
+      response: "Error al procesar la respuesta del modelo"
     };
   }
 }
@@ -107,7 +104,6 @@ app.post("/chat", async (req, res) => {
 
     if (!message) {
       return res.status(400).json({
-        success: false,
         error: "Mensaje vacío"
       });
     }
@@ -153,7 +149,10 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // CHAT NORMAL
+    /* =========================
+       CHAT NORMAL
+    ========================= */
+
     return res.json({
       role: "assistant",
       content: ai.response
@@ -161,7 +160,6 @@ app.post("/chat", async (req, res) => {
 
   } catch (error) {
     res.status(500).json({
-      success: false,
       error: error.toString()
     });
   }
@@ -172,5 +170,5 @@ app.post("/chat", async (req, res) => {
 ========================= */
 
 app.listen(PORT, () => {
-  console.log(`Servidor IA activo en puerto ${PORT}`);
+  console.log(`🚀 IA corriendo en http://localhost:${PORT}`);
 });
