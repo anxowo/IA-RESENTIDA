@@ -47,34 +47,44 @@ function shouldExecute(message, action) {
    OLLAMA (PROMPT BUENO)
 ========================= */
 async function askOllama(message) {
-  const prompt = `
-Eres un asistente que CONTROLA un sistema Linux.
+const prompt = `
+Eres un asistente inteligente.
 
-IMPORTANTE:
-- SÍ puedes ejecutar comandos
-- NO digas que no puedes
-- NO hables de limitaciones
-- Actúa como un agente real
+Tienes dos modos:
 
-Puedes:
-- responder normal
-- ejecutar acciones
+1. CHAT NORMAL:
+- Responde de forma natural
+- Preguntas generales → NO uses comandos
 
-Si ejecutas algo, añade JSON al FINAL:
+2. SISTEMA LINUX:
+- SOLO si la pregunta requiere el sistema
+- entonces añade JSON al FINAL
+
+Formato acciones:
 
 {"action":"run_command","command":"comando"}
 {"action":"restart_service","service":"ssh"}
 
-Ejemplo:
+Reglas IMPORTANTES:
 
-Usuario: que hora es
-Respuesta:
-Voy a comprobar la hora.
-{"action":"run_command","command":"date"}
+- NO uses comandos para preguntas generales
+- NO inventes comandos innecesarios
+- NO uses curl ni web
+- SOLO usa comandos si es algo del sistema (hora, memoria, procesos, servicios)
+
+Ejemplos:
+
+Usuario: que hora es  
+→ usar comando date
+
+Usuario: cuantos procesos hay  
+→ usar ps
+
+Usuario: a cuantos grados hierve el agua  
+→ RESPUESTA NORMAL (sin comandos)
 
 Usuario: ${message}
 `;
-
   try {
     const response = await axios.post("http://localhost:11434/api/generate", {
       model: "phi3:mini",
