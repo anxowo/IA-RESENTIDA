@@ -24,89 +24,89 @@ function run(command) {
 /* =========================
    SEGURIDAD
 ========================= */
-function isSafeCommand(cmd) {
-  const dangerous = ["rm", "shutdown", "reboot", "mkfs", "dd", "curl", "wget"];
-  return !dangerous.some(d => cmd.includes(d));
-}
+const allowedServices = ["ssh", "sshd", "nginx", "apache2"];
 
-function shouldExecute(message, action) {
-  const msg = message.toLowerCase();
+const allowedCommands = [
+  "uptime",
+  "df -h",
+  "free -m",
+  "whoami",
+  "date",
+];
 
-  if (action.action === "restart_service") {
-    return msg.includes("reinicia") || msg.includes("restart");
-  }
-
-  if (action.action === "run_command") {
-    return true;
-  }
-
-  return false;
+function isAllowedCommand(cmd) {
+  return allowedCommands.includes(cmd);
 }
 
 /* =========================
-   OLLAMA (MEJORADO)
+   OLLAMA
 ========================= */
 async function askOllama(message) {
   const prompt = `
-Eres un asistente inteligente.
+Eres un asistente inteligente en un sistema Linux.
 
-Tienes dos modos:
+Reglas:
+- Puedes ejecutar comandos del sistema si es útil
+- Si necesitas ejecutar algo, responde SOLO con JSON
+- Si no, responde normal como chat
+- Sé natural, útil y breve
 
-1. CHAT NORMAL:
-- Responde de forma natural
-- NO inventes datos
-- Si no sabes algo → dilo claramente
+Formato comandos:
+{
+ "action": "run_command",
+ "command": "date"
+}
 
-2. SISTEMA LINUX:
-- SOLO si la pregunta requiere el sistema
-- entonces añade JSON al FINAL
-
-Formato:
-
-{"action":"run_command","command":"comando"}
-{"action":"restart_service","service":"ssh"}
-
-Reglas IMPORTANTES:
-
-- NO inventes datos
-- Si no estás seguro → dilo
-- NO uses comandos para preguntas generales
-- SOLO usa comandos para cosas del sistema
+Formato reinicio:
+{
+ "action": "restart_service",
+ "service": "ssh"
+}
 
 Usuario: ${message}
 `;
 
   try {
     const response = await axios.post("http://localhost:11434/api/generate", {
-      model: "mistral",
+      model: "phi3",
       prompt,
       stream: false,
       options: {
-        num_predict: 120,
-        temperature: 0.3
+        num_predict: 150,
+        temperature: 0.4,
       },
-      timeout: 60000
     });
 
     let text = response.data.response?.trim();
 
     if (!text) {
-      return { text: "No hay respuesta del modelo" };
+      return { action: "chat", response: "No hay respuesta del modelo" };
     }
 
-    return { text };
+    // detectar JSON
+    const match = text.match(/\{[\s\S]*\}/);
+
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return { action: "chat", response: text };
+      }
+    }
+
+    return { action: "chat", response: text };
 
   } catch (e) {
     console.error("ERROR OLLAMA:", e.message);
-
     return {
-      text: "La IA está ocupada, intenta otra vez"
+      action: "chat",
+      response: "La IA está ocupada, intenta otra vez",
     };
   }
 }
 
 /* =========================
-   CHAT
+   ENDPOINT CHAT
 ========================= */
 app.post("/chat", async (req, res) => {
   try {
@@ -116,80 +116,69 @@ app.post("/chat", async (req, res) => {
       return res.status(400).json({ error: "Mensaje vacío" });
     }
 
-    const ai = await askOllama(message);
-    const text = ai.text;
+    const msg = message.toLowerCase();
 
-    const match = text.match(/\{[\s\S]*?\}/);
-
-    if (match) {
-      try {
-        const action = JSON.parse(match[0]);
-        const cleanText = text.replace(match[0], "").trim();
-
-        // RUN COMMAND
-        if (action.action === "run_command") {
-
-          if (!shouldExecute(message, action)) {
-            return res.json({
-              role: "assistant",
-              content: cleanText || "No es necesario ejecutar eso"
-            });
-          }
-
-          if (!isSafeCommand(action.command)) {
-            return res.json({
-              role: "assistant",
-              content: "⛔ Comando bloqueado"
-            });
-          }
-
-          if (action.command.length > 100) {
-            return res.json({
-              role: "assistant",
-              content: "Comando demasiado largo"
-            });
-          }
-
-          const result = await run(action.command);
-
-          return res.json({
-            role: "assistant",
-            content: `${cleanText}\n\n${result}`
-          });
-        }
-
-        // RESTART SERVICE
-        if (action.action === "restart_service") {
-
-          if (!shouldExecute(message, action)) {
-            return res.json({
-              role: "assistant",
-              content: cleanText || "No es necesario reiniciar eso"
-            });
-          }
-
-          const result = await run(`systemctl restart ${action.service}`);
-
-          return res.json({
-            role: "assistant",
-            content: `${cleanText}\n\nServicio ${action.service} reiniciado`
-          });
-        }
-
-      } catch (e) {
-        // JSON roto → ignoramos
-      }
+    /* ===== RESPUESTAS DIRECTAS (rápidas) ===== */
+    if (msg.includes("hora")) {
+      const result = await run("date");
+      return res.json({ role: "assistant", content: result });
     }
 
-    // RESPUESTA NORMAL
+    if (msg.includes("memoria")) {
+      const result = await run("free -m");
+      return res.json({ role: "assistant", content: result });
+    }
+
+    if (msg.includes("disco")) {
+      const result = await run("df -h");
+      return res.json({ role: "assistant", content: result });
+    }
+
+    /* ===== IA ===== */
+    const ai = await askOllama(message);
+
+    /* ===== ACCIONES ===== */
+    if (ai.action === "restart_service") {
+      if (!allowedServices.includes(ai.service)) {
+        return res.json({
+          role: "assistant",
+          content: "Servicio no permitido",
+        });
+      }
+
+      const result = await run(`systemctl restart ${ai.service}`);
+
+      return res.json({
+        role: "assistant",
+        content: `Servicio ${ai.service} reiniciado\n${result}`,
+      });
+    }
+
+    if (ai.action === "run_command") {
+      if (!isAllowedCommand(ai.command)) {
+        return res.json({
+          role: "assistant",
+          content: "Comando no permitido",
+        });
+      }
+
+      const result = await run(ai.command);
+
+      return res.json({
+        role: "assistant",
+        content: result,
+      });
+    }
+
+    /* ===== CHAT NORMAL ===== */
     return res.json({
       role: "assistant",
-      content: text
+      content: ai.response,
     });
 
   } catch (error) {
     res.status(500).json({
-      error: error.toString()
+      error: error.toString(),
     });
   }
 });
